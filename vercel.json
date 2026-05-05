@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/signal", "destination": "/api/signal.js" },
-    { "source": "/api/soso",   "destination": "/api/soso.js"   },
-    { "source": "/api/news",   "destination": "/api/news.js"   },
-    { "source": "/api/sodex",  "destination": "/api/sodex.js"  }
-  ]
-}
