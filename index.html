@@ -1175,19 +1175,17 @@ Output ONLY a raw JSON object (no backticks, no markdown):
 async function refreshAll(){
   addLog('Refreshing all data...','inf');
 
-  // 1. Prices
+    // 1. Prices
   addLog('Fetching live prices...','inf');
   const sosoP=await apiSoso('prices');
   if(sosoP&&sosoP.ok&&sosoP.data){
     const d=sosoP.data;
     if(d.BTC&&d.BTC.spot>0){
       S.prices=d;
-      setApi('price',sosoP.source==='coingecko'?'fall':'ok');
+      // CoinGecko-live is now treated as primary live source (green ✓)
+      setApi('price','ok');
       addLog(`Live prices loaded (${sosoP.source||'api'})`,'ok');
     } else {
-      S.prices=FB.prices; setApi('price','fall'); addLog('Live prices: using cached data','wn');
-    }
-  } else {
     S.prices=FB.prices; setApi('price','fall'); addLog('Live prices: using cached data','wn');
   }
   renderPrices();
