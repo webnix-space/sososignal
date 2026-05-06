@@ -1,18 +1,20 @@
 // DUAL-MODEL AI SIGNAL ENGINE
-// Model 1 (llama-3.3-70b-versatile): Primary analyst — generates BUY/SELL/HOLD signal
-// Model 2 Risk checker — tries gemma2-9b-it → llama3-8b-8192 → llama-3.1-8b-instant
+// Model 1 (llama-3.3-70b-versatile): Primary analyst
+// Model 2 Risk checker: gemma2-9b-it → llama3-8b-8192 → llama-3.1-8b-instant
 
 const GROQ = 'https://api.groq.com/openai/v1/chat/completions';
 
 async function callGroq(key, model, messages, jsonMode = false) {
   const body = { model, max_tokens: 600, temperature: 0.2, messages };
-  // json_object mode only works on llama-3.3-70b-versatile on Groq
   if (jsonMode && model === 'llama-3.3-70b-versatile') {
     body.response_format = { type: 'json_object' };
   }
   const r = await fetch(GROQ, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + key
+    },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(18000)
   });
@@ -47,13 +49,16 @@ export default async function handler(req, res) {
   const { prompt, mode } = req.body || {};
   if (!prompt) return res.status(400).json({ error: 'prompt required' });
 
-  // ── CHAT / ANALYZE — single fast model ──────────────────────────────────
+  // ── CHAT / ANALYZE ────────────────────────────────────────────────────────
   if (mode === 'chat' || mode === 'analyze') {
     const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
     for (const model of models) {
       try {
         const result = await callGroq(KEY, model, [
-          { role: 'system', content: 'You are OnchainEdge AI, a concise professional crypto analyst. Max 3 sentences. No markdown.' },
+          {
+            role: 'system',
+            content: 'You are OnchainEdge AI, a concise professional crypto analyst. Max 3 sentences. No markdown.'
+          },
           { role: 'user', content: prompt }
         ]);
         return res.status(200).json({ result, model });
@@ -64,7 +69,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ result: 'AI temporarily unavailable. Please try again.' });
   }
 
-  // ── SIGNAL MODE — DUAL MODEL ─────────────────────────────────────────────
+  // ── SIGNAL MODE — DUAL MODEL ──────────────────────────────────────────────
   const signalPrompt = `You are a professional crypto trading analyst with live market data access.
 
 ${prompt}
@@ -74,15 +79,19 @@ Respond ONLY with this exact JSON (no markdown, no extra text):
 
 signal must be: BUY, SELL, HOLD, or NEUTRAL`;
 
-  // MODEL 1: Primary signal generator
+  // MODEL 1: Primary signal
   let model1Result = null, model1Name = null;
   const m1candidates = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
   for (const model of m1candidates) {
     try {
       const raw = await callGroq(KEY, model, [
-        { role: 'system', content: 'You are a crypto trading analyst. Respond ONLY with valid JSON. No markdown code blocks. No text before or after the JSON.' },
+        {
+          role: 'system',
+          content: 'You are a crypto trading analyst. Respond ONLY with valid JSON. No markdown code blocks. No text before or after the JSON.'
+        },
         { role: 'user', content: signalPrompt }
       ], model === 'llama-3.3-70b-versatile');
+
       const parsed = parseJSON(raw);
       if (parsed?.signal && ['BUY','SELL','HOLD','NEUTRAL'].includes(parsed.signal)) {
         model1Result = parsed;
@@ -96,10 +105,12 @@ signal must be: BUY, SELL, HOLD, or NEUTRAL`;
   }
 
   if (!model1Result) {
-    return res.status(200).json({ error: 'Signal generation failed — all models unavailable' });
+    return res.status(200).json({
+      error: 'Signal generation failed — all models unavailable'
+    });
   }
 
-  // MODEL 2: Risk validator — try 3 models in order
+  // MODEL 2: Risk validator
   let riskCheck = null, m2Name = null;
   const riskPrompt = `You are a crypto risk analyst reviewing this trading signal:
 Signal: ${model1Result.signal} | Confidence: ${model1Result.confidence}% | Risk: ${model1Result.risk}
@@ -111,7 +122,6 @@ Respond ONLY with this JSON (no markdown):
 
 final_recommendation must be: CONFIRM, REDUCE, or INCREASE`;
 
-  // Try gemma2-9b-it first, then fallbacks
   const m2candidates = ['gemma2-9b-it', 'llama-3.1-8b-instant', 'llama3-8b-8192'];
   for (const model of m2candidates) {
     try {
@@ -130,7 +140,7 @@ final_recommendation must be: CONFIRM, REDUCE, or INCREASE`;
     }
   }
 
-  // Merge confidence from both models
+  // Merge confidence
   let finalConf = model1Result.confidence;
   if (riskCheck?.adjusted_confidence) {
     finalConf = Math.round((model1Result.confidence + riskCheck.adjusted_confidence) / 2);
@@ -138,19 +148,41 @@ final_recommendation must be: CONFIRM, REDUCE, or INCREASE`;
   if (riskCheck?.final_recommendation === 'REDUCE') finalConf = Math.max(40, finalConf - 10);
   if (riskCheck?.final_recommendation === 'INCREASE') finalConf = Math.min(95, finalConf + 5);
 
+  // Build riskCheck in a consistent shape the frontend always expects
+  const riskCheckForFrontend = riskCheck ? {
+    agreed:         riskCheck.agree ?? true,
+    verdict:        riskCheck.final_recommendation || 'CONFIRM',
+    score:          riskCheck.adjusted_confidence
+                      ? Math.round(100 - riskCheck.adjusted_confidence)
+                      : 50,
+    warnings:       riskCheck.risk_flags || [],
+    flags:          riskCheck.risk_flags || [],
+    contrarian:     riskCheck.contrarian || '',
+    recommendation: riskCheck.final_recommendation || 'CONFIRM'
+  } : null;
+
   const finalResult = {
-    ...model1Result,
-    confidence: finalConf,
-    risk_check: riskCheck ? {
-      agreed:         riskCheck.agree ?? true,
-      flags:          riskCheck.risk_flags || [],
-      contrarian:     riskCheck.contrarian || '',
-      recommendation: riskCheck.final_recommendation || 'CONFIRM'
-    } : null,
-    models_used:  [model1Name, m2Name].filter(Boolean),
-    dual_model:   !!riskCheck,
-    m1:           model1Name,
-    m2:           m2Name || 'unavailable'
+    signal:      model1Result.signal,
+    confidence:  finalConf,
+    summary:     model1Result.summary || '',
+    reasoning:   model1Result.reasoning || '',
+    factors:     model1Result.factors || [],
+    risk:        model1Result.risk || 'MEDIUM',
+    risk_level:  model1Result.risk || 'MEDIUM',
+    timeframe:   model1Result.timeframe || '3-7 days',
+    stop_loss:   model1Result.stop_loss || null,
+    take_profit: model1Result.take_profit || null,
+    // riskCheck field — this is what the frontend renderSig() reads
+    riskCheck:   riskCheckForFrontend,
+    risk_check:  riskCheckForFrontend,
+    models_used: [model1Name, m2Name].filter(Boolean),
+    dual_model:  !!riskCheck,
+    m1:          model1Name,
+    m2:          m2Name || 'unavailable',
+    engines: {
+      primary:   model1Name,
+      riskCheck: m2Name || 'unavailable'
+    }
   };
 
   return res.status(200).json({ result: JSON.stringify(finalResult) });
