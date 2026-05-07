@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="OnchainEdge — AI Crypto Finance Terminal powered by SoSoValue. Transparent AI signals, ETF flows, SSI indexes, BTC treasury tracking.">
+<title>OnchainEdge — AI Crypto Terminal | Powered by SoSoValue</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+<style>
+:root{--bg:#0a0e1a;--panel:#111726;--panel-2:#161e30;--border:#1f2942;--text:#e6edf7;--muted:#8a96b0;--accent:#667eea;--accent2:#764ba2;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;--soso:linear-gradient(135deg,#667eea,#764ba2)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh;background-image:radial-gradient(circle at 10% 20%,rgba(102,126,234,0.05) 0%,transparent 40%),radial-gradient(circle at 90% 80%,rgba(118,75,162,0.05) 0%,transparent 40%)}
+a{color:var(--accent);text-decoration:none}
+.container{max-width:1400px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:rgba(17,23,38,0.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:800}
+.logo-icon{width:36px;height:36px;border-radius:10px;background:var(--soso);display:grid;place-items:center;font-size:20px}
+.logo-text{background:var(--soso);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.status-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:5px;border:1px solid var(--border);background:rgba(0,0,0,0.3)}
+.pill.green{color:var(--green);border-color:rgba(34,197,94,0.3)}
+.pill.red{color:var(--red);border-color:rgba(239,68,68,0.3)}
+.pill.yellow{color:var(--yellow);border-color:rgba(245,158,11,0.3)}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.hero{padding:40px 20px 20px;text-align:center}
+.hero h1{font-size:32px;font-weight:800;margin-bottom:8px}
+.hero .gradient{background:var(--soso);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:var(--muted);font-size:15px;max-width:600px;margin:0 auto}
+.hero-badge{display:inline-flex;gap:6px;align-items:center;padding:6px 14px;border-radius:20px;background:rgba(102,126,234,0.1);border:1px solid rgba(102,126,234,0.3);font-size:12px;font-weight:600;margin-bottom:14px;color:var(--accent)}
+.grid{display:grid;gap:16px;margin-bottom:16px}
+.grid.cols-4{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.grid.cols-3{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.grid.cols-2{grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;transition:transform 0.2s,box-shadow 0.2s}
+.card:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,0,0,0.3)}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.card-header h2{font-size:15px;font-weight:700;letter-spacing:0.3px}
+.badge{padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase}
+.badge.soso{background:var(--soso);color:white}
+.badge.live{background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3)}
+.badge.cached{background:rgba(245,158,11,0.15);color:var(--yellow);border:1px solid rgba(245,158,11,0.3)}
+.price-card{text-align:center;padding:14px}
+.price-symbol{font-size:14px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.price-value{font-size:24px;font-weight:800;margin-bottom:4px}
+.price-change{font-size:13px;font-weight:600}
+.price-change.up{color:var(--green)}
+.price-change.down{color:var(--red)}
+.pulse-card{background:linear-gradient(135deg,rgba(102,126,234,0.08),rgba(118,75,162,0.08));border:1px solid rgba(102,126,234,0.4);position:relative;overflow:hidden}
+.pulse-card::before{content:'';position:absolute;top:-50%;right:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(102,126,234,0.1) 0%,transparent 50%);animation:rotate 20s linear infinite;pointer-events:none}
+@keyframes rotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.pulse-score-wrap{text-align:center;margin:18px 0;position:relative;z-index:1}
+.pulse-score{font-size:72px;font-weight:900;line-height:1;background:var(--soso);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.pulse-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:4px}
+.pulse-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px;position:relative;z-index:1}
+.pulse-item{background:rgba(0,0,0,0.4);padding:14px;border-radius:10px;text-align:center;border:1px solid rgba(255,255,255,0.05)}
+.pulse-icon{font-size:22px;margin-bottom:6px}
+.pulse-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.pulse-value{font-size:16px;font-weight:700;margin:6px 0;color:var(--text)}
+.pulse-value.ai{font-size:11px;line-height:1.4;font-weight:500}
+.pulse-source{font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;font-weight:600}
+.list{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto}
+.list::-webkit-scrollbar{width:6px}.list::-webkit-scrollbar-track{background:transparent}.list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(0,0,0,0.2);border-radius:8px;font-size:13px}
+.list-item-left{display:flex;flex-direction:column;gap:2px}
+.list-item-name{font-weight:600}
+.list-item-sub{font-size:11px;color:var(--muted)}
+.list-item-right{text-align:right}
+.list-item-value{font-weight:700;font-size:14px}
+.signal-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px}
+.signal-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.signal-tab{padding:6px 12px;border-radius:8px;background:rgba(0,0,0,0.3);border:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);transition:all 0.2s}
+.signal-tab:hover{color:var(--text)}
+.signal-tab.active{background:var(--soso);color:white;border-color:transparent}
+.signal-action{display:inline-block;padding:8px 18px;border-radius:8px;font-weight:800;font-size:18px;letter-spacing:1px;margin-bottom:8px}
+.signal-action.buy{background:rgba(34,197,94,0.15);color:var(--green);border:1px solid var(--green)}
+.signal-action.sell{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid var(--red)}
+.signal-action.hold{background:rgba(245,158,11,0.15);color:var(--yellow);border:1px solid var(--yellow)}
+.signal-confidence{margin:14px 0}
+.signal-confidence-bar{height:8px;background:rgba(0,0,0,0.4);border-radius:4px;overflow:hidden;margin-top:6px}
+.signal-confidence-fill{height:100%;background:var(--soso);transition:width 0.5s ease}
+.signal-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.signal-price{background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;text-align:center}
+.signal-price-label{font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.signal-price-value{font-size:14px;font-weight:700}
+.signal-reasoning{background:rgba(0,0,0,0.3);padding:12px;border-radius:8px;font-size:12px;line-height:1.5;margin:10px 0}
+.audit{margin-top:14px;border-top:1px solid var(--border);padding-top:14px}
+.audit-title{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px}
+.audit-step{display:flex;gap:10px;padding:10px;background:rgba(0,0,0,0.25);border-radius:8px;margin-bottom:6px;font-size:11px}
+.audit-step-icon{font-size:14px}
+.audit-step-content{flex:1}
+.audit-step-name{font-weight:600;font-size:11px;margin-bottom:2px}
+.audit-step-detail{color:var(--muted);font-size:10px;line-height:1.4}
+.audit-data-list{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.audit-data-item{display:flex;justify-content:space-between;font-size:10px;padding:4px 6px;background:rgba(102,126,234,0.05);border-radius:4px}
+.audit-data-item .source{color:var(--accent);font-weight:600}
+.audit-data-item .status{color:var(--green);font-size:9px}
+.chat-window{height:280px;overflow-y:auto;background:rgba(0,0,0,0.3);border-radius:10px;padding:12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
+.chat-msg{padding:8px 12px;border-radius:10px;font-size:13px;max-width:85%;line-height:1.4}
+.chat-msg.user{background:var(--soso);color:white;align-self:flex-end}
+.chat-msg.ai{background:rgba(255,255,255,0.05);align-self:flex-start;border:1px solid var(--border)}
+.chat-input{display:flex;gap:8px}
+.chat-input input{flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-size:13px}
+.chat-input input:focus{outline:none;border-color:var(--accent)}
+.chat-input button{padding:10px 16px;background:var(--soso);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px}
+.news-item{padding:12px;background:rgba(0,0,0,0.25);border-radius:10px;margin-bottom:8px;border:1px solid transparent;transition:all 0.2s}
+.news-item:hover{border-color:var(--accent)}
+.news-title{font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.3;color:var(--text)}
+.news-title a{color:var(--text)}
+.news-title a:hover{color:var(--accent)}
+.news-meta{font-size:10px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.news-analyze-btn{background:var(--soso);color:white;border:none;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.news-analyze-btn:disabled{opacity:0.5;cursor:not-allowed}
+.news-analysis{margin-top:8px;padding:8px;background:rgba(102,126,234,0.08);border-radius:6px;font-size:11px;color:var(--text);line-height:1.4;display:none;border-left:2px solid var(--accent)}
+.news-item.has-analysis .news-analysis{display:block}
+.log{background:rgba(0,0,0,0.4);border-radius:8px;padding:10px;font-family:'Consolas','Courier New',monospace;font-size:11px;max-height:200px;overflow-y:auto}
+.log-entry{display:flex;gap:8px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.03)}
+.log-time{color:var(--muted);min-width:60px}
+.log-msg.ok{color:var(--green)}
+.log-msg.err{color:var(--red)}
+.log-msg.info{color:var(--blue)}
+footer{margin-top:30px;padding:20px;text-align:center;color:var(--muted);font-size:12px;border-top:1px solid var(--border)}
+footer a{margin:0 8px}
+.loading{color:var(--muted);font-style:italic;font-size:12px;text-align:center;padding:20px}
+@media (max-width:768px){
+.container{padding:10px}
+header{padding:10px 14px;flex-direction:column;gap:8px}
+.hero h1{font-size:24px}.hero p{font-size:13px}
+.pulse-score{font-size:54px}
+.signal-prices{grid-template-columns:1fr}
+.grid.cols-4,.grid.cols-3,.grid.cols-2{grid-template-columns:1fr}
+.pulse-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-icon">⚡</div><span><span class="logo-text">Onchain</span>Edge</span></div>
+  <div class="status-bar">
+    <span class="pill green" id="pill-soso"><span class="dot"></span>SoSoValue</span>
+    <span class="pill green" id="pill-ai"><span class="dot"></span>Groq AI</span>
+    <span class="pill green" id="pill-data"><span class="dot"></span>Live Data</span>
+  </div>
+</header>
+
+<div class="container">
+
+<div class="hero">
+  <span class="hero-badge">⚡ Powered by SoSoValue API</span>
+  <h1>The <span class="gradient">One-Person Fund Manager</span></h1>
+  <p>Institutional crypto intelligence for solo traders. Transparent AI signals from SoSoValue's ETF flows, SSI indexes, and treasury data.</p>
+</div>
+
+<section>
+  <div class="card-header" style="padding:0 4px">
+    <h2>💰 Live Prices</h2>
+    <span class="badge soso" id="prices-source">SoSoValue</span>
+  </div>
+  <div class="grid cols-4">
+    <div class="card price-card"><div class="price-symbol">BTC</div><div class="price-value" id="price-btc">$--</div><div class="price-change" id="change-btc">--</div></div>
+    <div class="card price-card"><div class="price-symbol">ETH</div><div class="price-value" id="price-eth">$--</div><div class="price-change" id="change-eth">--</div></div>
+    <div class="card price-card"><div class="price-symbol">SOL</div><div class="price-value" id="price-sol">$--</div><div class="price-change" id="change-sol">--</div></div>
+    <div class="card price-card"><div class="price-symbol">BNB</div><div class="price-value" id="price-bnb">$--</div><div class="price-change" id="change-bnb">--</div></div>
+  </div>
+</section>
+
+<section style="margin-top:16px">
+  <div class="card pulse-card">
+    <div class="card-header">
+      <h2>🔥 SoSoValue Market Pulse</h2>
+      <span class="badge soso">POWERED BY SoSoValue</span>
+    </div>
+    <div class="pulse-score-wrap">
+      <div class="pulse-score" id="pulseScore">--</div>
+      <div class="pulse-label">Market Pulse Score (0-100)</div>
+    </div>
+    <div class="pulse-grid">
+      <div class="pulse-item"><div class="pulse-icon">📈</div><div class="pulse-title">ETF Net Flow</div><div class="pulse-value" id="pulseEtf">--</div><div class="pulse-source">SoSoValue ETF API</div></div>
+      <div class="pulse-item"><div class="pulse-icon">🎯</div><div class="pulse-title">Top SSI Sector</div><div class="pulse-value" id="pulseSsi">--</div><div class="pulse-source">SoSoValue SSI API</div></div>
+      <div class="pulse-item"><div class="pulse-icon">🏦</div><div class="pulse-title">Institutional BTC</div><div class="pulse-value" id="pulseTreasury">--</div><div class="pulse-source">SoSoValue Treasury</div></div>
+      <div class="pulse-item"><div class="pulse-icon">🤖</div><div class="pulse-title">AI Interpretation</div><div class="pulse-value ai" id="pulseAI">Analyzing...</div><div class="pulse-source">Groq + SoSoValue</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="grid cols-3" style="margin-top:16px">
+  <div class="card">
+    <div class="card-header"><h2>😱 Fear & Greed</h2><span class="badge live">LIVE</span></div>
+    <div style="text-align:center;padding:20px 0">
+      <div id="fgValue" style="font-size:56px;font-weight:900;line-height:1">--</div>
+      <div id="fgLabel" style="font-size:14px;color:var(--muted);margin-top:6px">Loading...</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2>📊 BTC ETF Flows</h2><span class="badge soso">SoSoValue</span></div>
+    <div style="text-align:center;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:10px">
+      <div id="etfTotal" style="font-size:24px;font-weight:800;color:var(--green)">$--</div>
+      <div style="font-size:11px;color:var(--muted)">Total Net Inflow Today</div>
+    </div>
+    <div class="list" id="etfList"><div class="loading">Loading ETF data...</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2>🎯 SSI Indexes</h2><span class="badge soso">SoSoValue</span></div>
+    <div class="list" id="ssiList"><div class="loading">Loading SSI data...</div></div>
+  </div>
+</div>
+
+<section style="margin-top:16px">
+  <div class="signal-card">
+    <div class="card-header">
+      <h2>🤖 AI Signal Engine — Dual-Model + Audit Trail</h2>
+      <span class="badge soso">SoSoValue Data</span>
+    </div>
+    <div class="signal-tabs" id="signalTabs">
+      <div class="signal-tab active" data-asset="BTC">BTC</div>
+      <div class="signal-tab" data-asset="ETH">ETH</div>
+      <div class="signal-tab" data-asset="SOL">SOL</div>
+      <div class="signal-tab" data-asset="BNB">BNB</div>
+      <div class="signal-tab" data-asset="MARKET">MARKET</div>
+    </div>
+    <div id="signalContent"><div class="loading">Generating AI signal...</div></div>
+  </div>
+</section>
+
+<div class="grid cols-3" style="margin-top:16px">
+  <div class="card">
+    <div class="card-header"><h2>🏦 BTC Treasury</h2><span class="badge soso" id="treasury-badge">SoSoValue</span></div>
+    <div class="list" id="treasuryList"><div class="loading">Loading...</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2>📈 Crypto Stocks</h2><span class="badge soso" id="stocks-badge">Live</span></div>
+    <div class="list" id="stocksList"><div class="loading">Loading...</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2>📰 Crypto News</h2><span class="badge live">LIVE</span></div>
+    <div class="list" id="newsList" style="max-height:500px"><div class="loading">Loading news...</div></div>
+  </div>
+</div>
+
+<div class="grid cols-2" style="margin-top:16px">
+  <div class="card">
+    <div class="card-header"><h2>💬 Live AI Chat</h2><span class="badge soso">Groq AI</span></div>
+    <div class="chat-window" id="chatWindow">
+      <div class="chat-msg ai">Hi! I'm your AI crypto analyst powered by SoSoValue data. Ask me anything about ETF flows, SSI sectors, or trading signals.</div>
+    </div>
+    <div class="chat-input">
+      <input type="text" id="chatInput" placeholder="Ask about BTC, ETF flows, SSI sectors..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button onclick="sendChat()">Send</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2>📋 System Log</h2><span class="badge live">LIVE</span></div>
+    <div class="log" id="systemLog"></div>
+  </div>
+</div>
+
+<footer>
+  <div>OnchainEdge — One-Person AI Fund Manager · Built solo for SoSoValue WaveHack 2026</div>
+  <div style="margin-top:8px">
+    <a href="https://onchainedge.vercel.app">Live Demo</a> ·
+    <a href="https://github.com/malik01-web">GitHub</a> ·
+    <a href="https://sosovalue.com">SoSoValue</a>
+  </div>
+</footer>
+
+</div>
+
+<script>
+const STATE = { prices:{}, pulse:{}, currentAsset:'BTC', etfData:null, ssiData:null, treasuryData:null, newsCache:{} };
+
+function log(msg, type='info'){
+  const el = document.getElementById('systemLog');
+  if(!el) return;
+  const time = new Date().toLocaleTimeString();
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-time">${time}</span><span class="log-msg ${type}">${msg}</span>`;
+  el.insertBefore(entry, el.firstChild);
+  while(el.children.length > 50) el.removeChild(el.lastChild);
+}
+
+function setPill(id, ok){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.remove('green','red','yellow');
+  el.classList.add(ok ? 'green' : 'yellow');
+}
+
+async function safeFetch(url, opts={}){
+  try {
+    const r = await fetch(url, opts);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } catch(e){ return null; }
+}
+
+function fmtPrice(n, d){
+  if(n == null || isNaN(n)) return '$--';
+  if(n >= 1000) return '$' + Number(n).toLocaleString(undefined,{maximumFractionDigits:2});
+  if(n >= 1) return '$' + Number(n).toFixed(2);
+  return '$' + Number(n).toFixed(d||4);
+}
+function fmtChange(n){
+  if(n == null || isNaN(n)) return '--';
+  return (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
+}
+function fmtMoney(n){
+  if(n == null || isNaN(n)) return '$0';
+  const abs = Math.abs(n);
+  if(abs >= 1e9) return (n>=0?'+':'') + '$' + (n/1e9).toFixed(2) + 'B';
+  if(abs >= 1e6) return (n>=0?'+':'') + '$' + (n/1e6).toFixed(1) + 'M';
+  if(abs >= 1e3) return (n>=0?'+':'') + '$' + (n/1e3).toFixed(1) + 'K';
+  return (n>=0?'+':'') + '$' + Number(n).toFixed(0);
+}
+function fmtBtc(n){
+  if(n == null || isNaN(n)) return '0';
+  if(n >= 1000) return Number(n).toLocaleString();
+  return Number(n).toFixed(0);
+}
+
+async function renderPrices(){
+  const json = await safeFetch('/api/soso?type=prices');
+  if(!json || !json.data){ log('Prices: failed', 'err'); setPill('pill-soso', false); return; }
+  const d = json.data;
+  STATE.prices = {
+    BTC: d.bitcoin?.usd || 0,
+    ETH: d.ethereum?.usd || 0,
+    SOL: d.solana?.usd || 0,
+    BNB: d.bnb?.usd || 0
+  };
+  STATE.priceChanges = {
+    BTC: d.bitcoin?.change24h || 0,
+    ETH: d.ethereum?.change24h || 0,
+    SOL: d.solana?.change24h || 0,
+    BNB: d.bnb?.change24h || 0
+  };
+  document.getElementById('price-btc').textContent = fmtPrice(d.bitcoin?.usd);
+  document.getElementById('price-eth').textContent = fmtPrice(d.ethereum?.usd);
+  document.getElementById('price-sol').textContent = fmtPrice(d.solana?.usd);
+  document.getElementById('price-bnb').textContent = fmtPrice(d.bnb?.usd);
+  const setChange = (id, val) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const n = Number(val) || 0;
+    el.textContent = (n >= 0 ? '▲ ' : '▼ ') + fmtChange(n);
+    el.className = 'price-change ' + (n >= 0 ? 'up' : 'down');
+  };
+  setChange('change-btc', d.bitcoin?.change24h);
+  setChange('change-eth', d.ethereum?.change24h);
+  setChange('change-sol', d.solana?.change24h);
+  setChange('change-bnb', d.bnb?.change24h);
+  document.getElementById('prices-source').textContent = json.source || 'Live';
+  log('Prices: ' + (json.source || 'Live'), 'ok');
+  setPill('pill-soso', true);
+}
+
+async function renderETF(){
+  const json = await safeFetch('/api/soso?type=etf-flows');
+  if(!json || !json.data){ log('ETF: failed', 'err'); return; }
+  const d = json.data;
+  STATE.etfData = d;
+  document.getElementById('etfTotal').textContent = fmtMoney(d.totalNet);
+  document.getElementById('etfTotal').style.color = (d.totalNet >= 0) ? 'var(--green)' : 'var(--red)';
+  const list = document.getElementById('etfList');
+  if(!d.etfs || d.etfs.length === 0){ list.innerHTML = '<div class="loading">No ETF data</div>'; return; }
+  list.innerHTML = d.etfs.map(e => `
+    <div class="list-item">
+      <div class="list-item-left">
+        <div class="list-item-name">${e.ticker}</div>
+        <div class="list-item-sub">${e.name || ''}</div>
+      </div>
+      <div class="list-item-right">
+        <div class="list-item-value" style="color:${(e.netInflow >= 0) ? 'var(--green)' : 'var(--red)'}">${fmtMoney(e.netInflow)}</div>
+      </div>
+    </div>`).join('');
+  log('ETF: ' + (json.source || 'Live'), 'ok');
+}
+
+async function renderSSI(){
+  const json = await safeFetch('/api/soso?type=ssi');
+  if(!json || !json.data){ log('SSI: failed', 'err'); return; }
+  const list = document.getElementById('ssiList');
+  const arr = Array.isArray(json.data) ? json.data : [];
+  STATE.ssiData = arr;
+  if(arr.length === 0){ list.innerHTML = '<div class="loading">No SSI data</div>'; return; }
+  const slugMap = { ssilayer1:'ssiLayer1', ssidefi:'ssiDefi', ssimeme:'ssiMeme', ssiai:'ssiAi', ssigaming:'ssiGaming' };
+  list.innerHTML = arr.map(s => {
+    const ticker = s.ticker || '';
+    const slug = slugMap[ticker.toLowerCase()] || ticker;
+    const change = Number(s.change24h) || 0;
+    return `
+      <div class="list-item">
+        <div class="list-item-left">
+          <div class="list-item-name">${s.name || ticker.replace('ssi','')}</div>
+          <div class="list-item-sub">${ticker}</div>
+        </div>
+        <div class="list-item-right">
+          <div class="list-item-value" style="color:${change >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtChange(change)}</div>
+          <a href="https://sosovalue.com/indexes/${slug}" target="_blank" style="font-size:10px">VIEW →</a>
+        </div>
+      </div>`;
+  }).join('');
+  log('SSI: ' + (json.source || 'Live'), 'ok');
+}
+
+async function renderTreasury(){
+  const json = await safeFetch('/api/soso?type=treasury');
+  if(!json || !json.data){ log('Treasury: failed', 'err'); return; }
+  const arr = Array.isArray(json.data) ? json.data : [];
+  STATE.treasuryData = arr;
+  document.getElementById('treasury-badge').textContent = (json.source === 'SoSoValue' ? 'SoSoValue' : 'SoSo Cached');
+  document.getElementById('treasury-badge').className = 'badge ' + (json.source === 'SoSoValue' ? 'soso' : 'cached');
+  const list = document.getElementById('treasuryList');
+  if(arr.length === 0){ list.innerHTML = '<div class="loading">No treasury data</div>'; return; }
+  list.innerHTML = arr.map(c => `
+    <div class="list-item">
+      <div class="list-item-left">
+        <div class="list-item-name">${c.name}</div>
+        <div class="list-item-sub">${c.ticker || ''}</div>
+      </div>
+      <div class="list-item-right">
+        <div class="list-item-value">${fmtBtc(c.btc)} BTC</div>
+      </div>
+    </div>`).join('');
+  log('Treasury: ' + (json.source || 'Cached'), 'ok');
+}
+
+async function renderStocks(){
+  const json = await safeFetch('/api/soso?type=crypto-stocks');
+  if(!json || !json.data){ log('Stocks: failed', 'err'); return; }
+  const arr = Array.isArray(json.data) ? json.data : [];
+  document.getElementById('stocks-badge').textContent = json.source || 'Live';
+  document.getElementById('stocks-badge').className = 'badge ' + (json.source === 'SoSoValue' ? 'soso' : 'live');
+  const list = document.getElementById('stocksList');
+  if(arr.length === 0){ list.innerHTML = '<div class="loading">No stock data</div>'; return; }
+  list.innerHTML = arr.map(s => {
+    const change = Number(s.change24h) || 0;
+    return `
+      <div class="list-item">
+        <div class="list-item-left">
+          <div class="list-item-name">${s.ticker}</div>
+          <div class="list-item-sub">${s.source || 'Live'}</div>
+        </div>
+        <div class="list-item-right">
+          <div class="list-item-value">${fmtPrice(s.price)}</div>
+          <div style="font-size:11px;color:${change >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${fmtChange(change)}</div>
+        </div>
+      </div>`;
+  }).join('');
+  log('Stocks: ' + (json.source || 'Live'), 'ok');
+}
+
+async function renderMarketPulse(){
+  const json = await safeFetch('/api/soso?type=pulse');
+  if(!json || !json.data){ log('Pulse: failed', 'err'); return; }
+  const d = json.data;
+  STATE.pulse = d;
+  document.getElementById('pulseScore').textContent = d.pulseScore || '--';
+  document.getElementById('pulseEtf').textContent = fmtMoney(d.etfTotal) + ' (' + (d.etfSentiment || 'neutral') + ')';
+  document.getElementById('pulseSsi').textContent = (d.ssiLeader || '--') + ' ' + fmtChange(d.ssiLeaderChange);
+  document.getElementById('pulseTreasury').textContent = (d.treasuryTotal ? (d.treasuryTotal/1000).toFixed(0) + 'K BTC' : '--');
+  let interp = '';
+  const score = d.pulseScore || 50;
+  if(score >= 70) interp = '🟢 Bullish: Strong ETF inflows + ' + (d.ssiLeader || 'sector') + ' leading rotation.';
+  else if(score >= 50) interp = '🟡 Mixed: ' + (d.ssiLeader || 'Sectors') + ' showing strength, caution warranted.';
+  else interp = '🔴 Bearish: Weak ETF flows + sector underperformance suggests defensive stance.';
+  document.getElementById('pulseAI').textContent = interp;
+  log('Pulse score: ' + score, 'ok');
+}
+
+async function renderFearGreed(){
+  const json = await safeFetch('https://api.alternative.me/fng/');
+  if(!json || !json.data || !json.data[0]){ log('Fear & Greed: failed', 'err'); return; }
+  const d = json.data[0];
+  const val = parseInt(d.value);
+  const el = document.getElementById('fgValue');
+  el.textContent = val;
+  if(val < 25) el.style.color = 'var(--red)';
+  else if(val < 50) el.style.color = 'var(--yellow)';
+  else if(val < 75) el.style.color = 'var(--green)';
+  else el.style.color = 'var(--accent)';
+  document.getElementById('fgLabel').textContent = d.value_classification || 'Neutral';
+  log('Fear & Greed updated', 'ok');
+}
+
+async function renderNews(){
+  const json = await safeFetch('/api/news');
+  const list = document.getElementById('newsList');
+  if(!json || !json.articles || json.articles.length === 0){
+    list.innerHTML = '<div class="loading">No news available</div>';
+    log('News: 0 articles', 'err');
+    return;
+  }
+  list.innerHTML = json.articles.slice(0, 10).map((a, i) => {
+    const date = a.pubDate ? new Date(a.pubDate).toLocaleDateString() : '';
+    return `
+      <div class="news-item" id="news-${i}">
+        <div class="news-title"><a href="${a.link || '#'}" target="_blank">${a.title || 'Untitled'}</a></div>
+        <div class="news-meta">
+          <span>${a.source || 'News'} · ${date}</span>
+          <button class="news-analyze-btn" onclick="analyzeNews(${i}, this)">🤖 AI Analyze</button>
+        </div>
+        <div class="news-analysis" id="news-analysis-${i}"></div>
+      </div>`;
+  }).join('');
+  STATE.newsCache.articles = json.articles;
+  log('News: ' + json.articles.length + ' articles', 'ok');
+}
+
+async function analyzeNews(idx, btn){
+  const article = STATE.newsCache.articles[idx];
+  if(!article) return;
+  const analysisEl = document.getElementById('news-analysis-' + idx);
+  const itemEl = document.getElementById('news-' + idx);
+  
+  if(itemEl.classList.contains('has-analysis')){
+    itemEl.classList.remove('has-analysis');
+    btn.textContent = '🤖 AI Analyze';
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.textContent = '⏳ Analyzing...';
+  analysisEl.textContent = 'AI analyzing market impact...';
+  itemEl.classList.add('has-analysis');
+  
+  const prompt = `Analyze this crypto news headline and explain its potential market impact in 2 sentences using SoSoValue context (ETF flows: ${STATE.etfData ? fmtMoney(STATE.etfData.totalNet) : 'N/A'}, Pulse Score: ${STATE.pulse?.pulseScore || 'N/A'}/100).
+
+Headline: ${article.title}
+Summary: ${article.summary || 'N/A'}
+
+Be specific about which assets/sectors might be affected.`;
+  
+  try {
+    const r = await fetch('/api/signal', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ prompt, mode: 'analyze' })
+    });
+    const j = await r.json();
+    analysisEl.textContent = j.result || 'Analysis unavailable';
+  } catch(e){
+    analysisEl.textContent = 'Analysis failed. Try again.';
+  }
+  
+  btn.disabled = false;
+  btn.textContent = '✓ Hide Analysis';
+}
+
+async function renderSignal(asset){
+  asset = asset || STATE.currentAsset;
+  STATE.currentAsset = asset;
+  const container = document.getElementById('signalContent');
+  container.innerHTML = '<div class="loading">🤖 Generating AI signal for ' + asset + '...</div>';
+  
+  let price = STATE.prices[asset] || 0;
+  if(asset === 'MARKET') price = STATE.prices.BTC || 0;
+  
+  const etf = STATE.etfData;
+  const ssi = STATE.ssiData;
+  const treasury = STATE.treasuryData;
+  const pulse = STATE.pulse;
+  const change = STATE.priceChanges?.[asset] || 0;
+  
+  // Build asset-specific context
+  let assetContext = '';
+  if(asset === 'BTC'){
+    assetContext = `\nBTC-SPECIFIC CONTEXT:
+- BTC is the primary beneficiary of all ETF inflows above
+- Treasury accumulation by MicroStrategy/Tesla directly impacts BTC supply
+- Layer 1 SSI rotation often drags BTC dominance`;
+  } else if(asset === 'ETH'){
+    assetContext = `\nETH-SPECIFIC CONTEXT:
+- ETH is part of the Layer 1 SSI sector (${ssi?.find(s=>s.ticker?.toLowerCase()==='ssilayer1')?.change24h || 0}%)
+- ETH ETFs are still nascent vs BTC ETFs
+- DeFi sector (${ssi?.find(s=>s.ticker?.toLowerCase()==='ssidefi')?.change24h || 0}%) heavily depends on ETH
+- Watch ETH/BTC ratio for relative strength`;
+  } else if(asset === 'SOL'){
+    assetContext = `\nSOL-SPECIFIC CONTEXT:
+- SOL is high-beta to Layer 1 sector (${ssi?.find(s=>s.ticker?.toLowerCase()==='ssilayer1')?.change24h || 0}%)
+- Meme sector strength (${ssi?.find(s=>s.ticker?.toLowerCase()==='ssimeme')?.change24h || 0}%) often correlates with SOL
+- AI sector exposure: ${ssi?.find(s=>s.ticker?.toLowerCase()==='ssiai')?.change24h || 0}%`;
+  } else if(asset === 'BNB'){
+    assetContext = `\nBNB-SPECIFIC CONTEXT:
+- BNB tied to Binance ecosystem, less correlated to ETF flows
+- Tracks Layer 1 SSI sector but with lower beta
+- Trading volume on BNB Chain affects token demand`;
+  } else if(asset === 'MARKET'){
+    assetContext = `\nMARKET-WIDE ANALYSIS:
+- Aggregate signal across BTC, ETH, SOL, BNB, and altcoins
+- Use ETF flows, treasury accumulation, and SSI sector rotation as primary signals
+- Pulse Score ${pulse?.pulseScore || 'N/A'}/100 is the macro indicator
+- Provide a directional bias for the entire crypto market`;
+  }
+  
+  const prompt = `Generate a trading signal SPECIFICALLY for ${asset}.
+
+═══ LIVE SOSOVALUE INSTITUTIONAL DATA ═══
+Current ${asset} price: $${price ? price.toLocaleString() : '0'}
+${asset !== 'MARKET' ? `${asset} 24h change: ${fmtChange(change)}` : ''}
+
+SoSoValue ETF Flows:
+- Total Net Inflow Today: ${etf ? fmtMoney(etf.totalNet) : 'N/A'}
+${etf && etf.etfs ? etf.etfs.slice(0,5).map(e => `- ${e.ticker} (${e.name}): ${fmtMoney(e.netInflow)}`).join('\n') : ''}
+
+SoSoValue SSI Sector Indexes:
+${ssi ? ssi.slice(0,5).map(s => `- ${s.name}: ${fmtChange(s.change24h)}`).join('\n') : 'N/A'}
+
+SoSoValue BTC Treasury Holdings:
+${treasury ? treasury.slice(0,5).map(t => `- ${t.name}: ${fmtBtc(t.btc)} BTC`).join('\n') : 'N/A'}
+
+SoSoValue Market Pulse Score: ${pulse?.pulseScore || 'N/A'}/100
+${assetContext}
+
+IMPORTANT: Your reasoning MUST be specific to ${asset}, not generic. Cite ${asset}-specific factors.`;
+
+  try {
+    const r = await fetch('/api/signal', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ prompt, mode:'signal' })
+    });
+    const j = await r.json();
+    if(j.error){ container.innerHTML = '<div class="loading">⚠️ ' + j.error + '</div>'; log('Signal ' + asset + ': error', 'err'); return; }
+    let sig;
+    try { sig = JSON.parse(j.result); } catch(e){ sig = j; }
+    renderSignalUI(sig, asset, price);
+    log('Signal ' + asset + ': ' + sig.signal + ' (' + sig.confidence + '%)', 'ok');
+  } catch(e){
+    container.innerHTML = '<div class="loading">⚠️ Signal generation failed</div>';
+    log('Signal ' + asset + ': ' + e.message, 'err');
+  }
+}
+
+function renderSignalUI(sig, asset, currentPrice){
+  const container = document.getElementById('signalContent');
+  const action = (sig.signal || 'HOLD').toLowerCase();
+  let entry = currentPrice || 0;
+  let stopLoss = 0, takeProfit = 0;
+  if(currentPrice > 0){
+    const slPct = parseFloat(String(sig.stop_loss || '-5').replace(/[%+]/g,'')) / 100;
+    const tpPct = parseFloat(String(sig.take_profit || '8').replace(/[%+]/g,'')) / 100;
+    if(action === 'sell'){
+      stopLoss = entry * (1 + Math.abs(slPct));
+      takeProfit = entry * (1 - Math.abs(tpPct));
+    } else {
+      stopLoss = entry * (1 - Math.abs(slPct));
+      takeProfit = entry * (1 + Math.abs(tpPct));
+    }
+  }
+  const rc = sig.riskCheck || sig.risk_check || {};
+  const sources = sig.data_sources || [];
+  
+  let html = `
+    <div style="text-align:center;margin-bottom:14px">
+      <div class="signal-action ${action}">${sig.signal || 'HOLD'}</div>
+    </div>
+    <div class="signal-confidence">
+      <div style="display:flex;justify-content:space-between;font-size:12px">
+        <span>AI Confidence (Weighted)</span>
+        <span style="font-weight:700">${sig.confidence || 50}%</span>
+      </div>
+      <div class="signal-confidence-bar">
+        <div class="signal-confidence-fill" style="width:${sig.confidence || 50}%"></div>
+      </div>
+    </div>
+    <div class="signal-prices">
+      <div class="signal-price"><div class="signal-price-label">Entry</div><div class="signal-price-value">${fmtPrice(entry)}</div></div>
+      <div class="signal-price"><div class="signal-price-label">Stop Loss</div><div class="signal-price-value" style="color:var(--red)">${fmtPrice(stopLoss)}</div></div>
+      <div class="signal-price"><div class="signal-price-label">Take Profit</div><div class="signal-price-value" style="color:var(--green)">${fmtPrice(takeProfit)}</div></div>
+    </div>
+    <div class="signal-reasoning">${sig.reasoning || sig.summary || 'Analysis complete'}</div>
+    <div class="audit">
+      <div class="audit-title">📊 Audit Trail — Full Transparency</div>
+      <div class="audit-step">
+        <div class="audit-step-icon">📥</div>
+        <div class="audit-step-content">
+          <div class="audit-step-name">Data Ingested from SoSoValue</div>
+          <div class="audit-data-list">
+            ${sources.length > 0 ? sources.map(s => `<div class="audit-data-item"><span class="source">${s.name}</span><span class="status">●${s.status || 'live'}</span></div>`).join('') : `
+              <div class="audit-data-item"><span class="source">SoSoValue ETF Flows</span><span class="status">●live</span></div>
+              <div class="audit-data-item"><span class="source">SoSoValue SSI Indexes</span><span class="status">●live</span></div>
+              <div class="audit-data-item"><span class="source">SoSoValue Treasuries</span><span class="status">●live</span></div>
+              <div class="audit-data-item"><span class="source">SoSoValue Currencies</span><span class="status">●live</span></div>
+            `}
+          </div>
+        </div>
+      </div>
+      <div class="audit-step">
+        <div class="audit-step-icon">🧠</div>
+        <div class="audit-step-content">
+          <div class="audit-step-name">Primary Analysis [M1]</div>
+          <div class="audit-step-detail">${sig.m1 || sig.engines?.primary || 'llama-3.3-70b-versatile'} · ${sig.confidence || 50}% confidence · ${sig.signal || 'HOLD'} signal</div>
+        </div>
+      </div>
+      <div class="audit-step">
+        <div class="audit-step-icon">🛡️</div>
+        <div class="audit-step-content">
+          <div class="audit-step-name">Risk Validation [M2]</div>
+          <div class="audit-step-detail">${sig.m2 || sig.engines?.riskCheck || 'gemma2-9b-it'} · Risk Score: ${rc.score || '--'}/100 · ${rc.verdict || 'Validated'}</div>
+        </div>
+      </div>`;
+  if(rc.warnings && rc.warnings.length > 0){
+    html += `<div class="audit-step"><div class="audit-step-icon">⚠️</div><div class="audit-step-content"><div class="audit-step-name">Risk Warnings</div><div class="audit-step-detail">${rc.warnings.map(w => '• ' + w).join('<br>')}</div></div></div>`;
+  }
+  if(rc.contrarian){
+    html += `<div class="audit-step"><div class="audit-step-icon">🔄</div><div class="audit-step-content"><div class="audit-step-name">Contrarian View</div><div class="audit-step-detail">${rc.contrarian}</div></div></div>`;
+  }
+  html += `</div>
+    <div style="text-align:center;margin-top:14px">
+      <a href="https://www.tradingview.com/chart/?symbol=BINANCE:${asset === 'MARKET' ? 'BTC' : asset}USDT" target="_blank" style="font-size:12px">📈 View Chart on TradingView →</a>
+    </div>`;
+  container.innerHTML = html;
+}
+
+document.getElementById('signalTabs').addEventListener('click', (e) => {
+  if(!e.target.classList.contains('signal-tab')) return;
+  document.querySelectorAll('.signal-tab').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+  renderSignal(e.target.dataset.asset);
+});
+
+async function sendChat(){
+  const input = document.getElementById('chatInput');
+  const win = document.getElementById('chatWindow');
+  const msg = (input.value || '').trim();
+  if(!msg) return;
+  const userDiv = document.createElement('div');
+  userDiv.className = 'chat-msg user';
+  userDiv.textContent = msg;
+  win.appendChild(userDiv);
+  input.value = '';
+  win.scrollTop = win.scrollHeight;
+  const loadDiv = document.createElement('div');
+  loadDiv.className = 'chat-msg ai';
+  loadDiv.textContent = '🤔 Analyzing...';
+  win.appendChild(loadDiv);
+  win.scrollTop = win.scrollHeight;
+  const context = `User question: ${msg}
+
+Live SoSoValue market data:
+- BTC: $${STATE.prices.BTC || '?'} (${fmtChange(STATE.priceChanges?.BTC || 0)})
+- ETH: $${STATE.prices.ETH || '?'} (${fmtChange(STATE.priceChanges?.ETH || 0)})
+- SOL: $${STATE.prices.SOL || '?'} (${fmtChange(STATE.priceChanges?.SOL || 0)})
+- SoSoValue Pulse Score: ${STATE.pulse?.pulseScore || '?'}/100
+- SoSoValue ETF Net Flow Today: ${STATE.etfData ? fmtMoney(STATE.etfData.totalNet) : '?'}
+- Top SSI Sector: ${STATE.pulse?.ssiLeader || '?'} ${fmtChange(STATE.pulse?.ssiLeaderChange || 0)}
+
+Answer concisely (max 3 sentences) using SoSoValue data when relevant.`;
+  try {
+    const r = await fetch('/api/signal', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ prompt: context, mode: 'chat' })
+    });
+    const j = await r.json();
+    loadDiv.textContent = j.result || 'AI temporarily unavailable.';
+  } catch(e){
+    loadDiv.textContent = 'Connection error. Please try again.';
+  }
+  win.scrollTop = win.scrollHeight;
+}
+
+async function refreshAll(){
+  log('Refreshing dashboard...', 'info');
+  try { await renderPrices(); } catch(e){ log('Prices error', 'err'); }
+  try { await renderMarketPulse(); } catch(e){ log('Pulse error', 'err'); }
+  try { await renderFearGreed(); } catch(e){ log('F&G error', 'err'); }
+  try { await renderETF(); } catch(e){ log('ETF error', 'err'); }
+  try { await renderSSI(); } catch(e){ log('SSI error', 'err'); }
+  try { await renderTreasury(); } catch(e){ log('Treasury error', 'err'); }
+  try { await renderStocks(); } catch(e){ log('Stocks error', 'err'); }
+  try { await renderNews(); } catch(e){ log('News error', 'err'); }
+  try { await renderSignal(STATE.currentAsset); } catch(e){ log('Signal error', 'err'); }
+  log('Dashboard refresh complete', 'ok');
+}
+
+function init(){
+  log('OnchainEdge starting...', 'info');
+  setTimeout(refreshAll, 500);
+  setInterval(refreshAll, 5 * 60 * 1000);
+}
+
+if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', init); }
+else { init(); }
+</script>
+</body>
+</html>
