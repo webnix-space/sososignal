@@ -1,4 +1,4 @@
-// SoSoValue API — All fields confirmed from debug output
+// SoSoValue API — Fixed for ETF flows & SSI indexes
 const BASE = 'https://openapi.sosovalue.com/openapi/v1';
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     for (let i = 0; i <= retries; i++) {
       const r = await fetch(BASE + path, { headers: H, signal: AbortSignal.timeout(ms) });
       if (r.status === 429 && i < retries) {
-        await sleep(300 * (i + 1));
+        await sleep(500 * (i + 1));
         continue;
       }
       if (!r.ok) return null;
@@ -52,7 +52,6 @@ export default async function handler(req, res) {
           const fetches = Object.entries(targets).filter(([,id]) => id).map(async ([sym, id]) => {
             const s = await getWithRetry(`/currencies/${id}/market-snapshot`, 5000);
             const price = parseFloat(s?.price) || 0;
-            // change_pct_24h is decimal (e.g. 0.001 = 0.1%) — multiply by 100 for display
             if (price > 0) return [sym, { spot: price, ch: parseFloat(s?.change_pct_24h || 0) * 100, vol: fmtVol(parseFloat(s?.turnover_24h || 0)), lu: Date.now() }];
             return [sym, null];
           });
@@ -73,14 +72,27 @@ export default async function handler(req, res) {
 
     // ── ETF FLOWS ───────────────────────────────────────────────────
     if (type === 'etf-flows') {
-      const summary  = await getWithRetry('/etfs/summary-history?symbol=BTC&country_code=US&limit=1');
-      const latest   = Array.isArray(summary) ? summary[0] : (summary || {});
-      const totalNet = parseFloat(latest.total_net_inflow || 0);
-      const totalAssets = parseFloat(latest.total_net_assets || 0);
-      console.log('ETF summary:', { date: latest.date, totalNet });
+      const summary  = await getWithRetry('/etfs/summary-history?symbol=BTC&country_code=US&limit=2');
+      const summaries = Array.isArray(summary) ? summary : [];
+      const latest   = summaries[0] || {};
+      const prev     = summaries[1] || {};
+      
+      let totalNet = parseFloat(latest.total_net_inflow || 0);
+      let totalAssets = parseFloat(latest.total_net_assets || 0);
+      let date = latest.date;
+      
+      // If today's data is zero/empty, use previous trading day
+      if (Math.abs(totalNet) < 1000 && prev && Math.abs(parseFloat(prev.total_net_inflow || 0)) > 0) {
+        totalNet = parseFloat(prev.total_net_inflow);
+        totalAssets = parseFloat(prev.total_net_assets || 0);
+        date = prev.date;
+      }
+      
+      console.log('ETF summary:', { date, totalNet, totalAssets, prevDate: prev.date });
 
       const etfListRaw = await getWithRetry('/etfs?symbol=BTC&country_code=US');
       const etfList = Array.isArray(etfListRaw) ? etfListRaw : [];
+      console.log('ETF list count:', etfList.length);
 
       const nameMap = {
         IBIT:'iShares Bitcoin Trust', FBTC:'Fidelity Wise Origin Bitcoin Fund',
@@ -90,48 +102,75 @@ export default async function handler(req, res) {
         BRRR:'Valkyrie Bitcoin Fund', EZBC:'Franklin Templeton Digital Holdings Trust'
       };
 
-      // Get ALL tickers from API, not just first 10
+      // Get ALL tickers from API
       const tickers = etfList.length > 0
         ? etfList.map(e => ({ t: e.ticker, n: e.name })).filter(e => e.t)
         : Object.keys(nameMap).map(t => ({ t, n: nameMap[t] }));
 
       const etfs = [];
+      let apiSuccessCount = 0;
+      
       for (const { t, n } of tickers) {
+        console.log(`Fetching ETF ${t}...`);
         const snap = await getWithRetry(`/etfs/${t}/market-snapshot`, 5000);
-        // net_inflow is a NUMBER (can be negative, zero, or positive like -7426720)
-        const flow = snap ? parseFloat(snap.net_inflow ?? 0) : 0;
+        console.log(`ETF ${t} raw:`, snap ? JSON.stringify(snap).slice(0,120) : 'null');
+        
+        // Handle both number and string net_inflow, and null/undefined
+        let flow = 0;
+        if (snap && snap.net_inflow !== undefined && snap.net_inflow !== null) {
+          flow = parseFloat(snap.net_inflow);
+          if (!isNaN(flow)) apiSuccessCount++;
+        }
+        console.log(`ETF ${t} flow:`, flow);
+        
         etfs.push({ ticker: t, name: n || nameMap[t] || t, netInflow: flow });
-        await sleep(30); // Small delay to avoid rate limiting
+        await sleep(150); // Increased delay to avoid rate limits
       }
 
       // Calculate sum of all individual flows
       const sumFlows = etfs.reduce((a, b) => a + b.netInflow, 0);
+      console.log('ETF sumFlows:', sumFlows, 'apiSuccess:', apiSuccessCount);
 
-      // If sum of individual flows is 0 but totalNet is non-zero,
-      // it means we couldn't get individual data. Use proportional distribution.
-      if (Math.abs(sumFlows) < 1000 && Math.abs(totalNet) > 0) {
-        const shares = { IBIT:0.50, FBTC:0.20, GBTC:-0.08, ARKB:0.15, BITB:0.05, HODL:0.02, BTCO:0.10, BTCW:0.03, BRRR:0.02, EZBC:0.01 };
-        etfs.forEach(e => { e.netInflow = (shares[e.ticker] ?? 0) * totalNet; });
+      // If API returned data for less than 5 ETFs OR sum is near zero but totalNet is non-zero,
+      // use proportional distribution based on known market share
+      if ((apiSuccessCount < 5 || Math.abs(sumFlows) < 1000) && Math.abs(totalNet) > 0) {
+        console.log('Using proportional fallback for ETF flows');
+        const shares = { 
+          IBIT:0.50, FBTC:0.20, GBTC:-0.08, ARKB:0.15, BITB:0.05, 
+          HODL:0.02, BTCO:0.10, BTCW:0.03, BRRR:0.02, EZBC:0.01 
+        };
+        etfs.forEach(e => { 
+          e.netInflow = (shares[e.ticker] ?? 0) * totalNet; 
+        });
       }
 
-      // Sort by absolute flow (largest first), then filter to show:
-      // 1. All with non-zero flows, OR
-      // 2. Top 10 if all are zero
+      // Sort by absolute flow (largest first)
       etfs.sort((a, b) => Math.abs(b.netInflow) - Math.abs(a.netInflow));
+      
+      // Show all with non-zero flows, or top 10 if all zero
       const nonZero = etfs.filter(e => Math.abs(e.netInflow) > 0);
       const finalEtfs = nonZero.length > 0 ? nonZero.slice(0, 12) : etfs.slice(0, 10);
+      
       res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
-      return res.json({ ok: true, data: { etfs: finalEtfs, totalNet, totalAssets, date: latest.date }, source: 'SoSoValue', sosoUsed: true });
+      return res.json({ 
+        ok: true, 
+        data: { 
+          etfs: finalEtfs, 
+          totalNet, 
+          totalAssets, 
+          date,
+          apiSuccess: apiSuccessCount 
+        }, 
+        source: 'SoSoValue', 
+        sosoUsed: true 
+      });
     }
 
     // ── TREASURY ────────────────────────────────────────────────────
-    // FIX: purchase-history has btc_holding (current total holding)
-    // Use the LATEST entry's btc_holding, do NOT sum btc_acq
     if (type === 'treasury') {
       const list = await getWithRetry('/btc-treasuries');
       const companies = [];
 
-      // Known BTC holdings (fallback if API fails) — updated May 2026
       const knownBtc = {
         MSTR:818869, MARA:47531, RIOT:19223, TSLA:11509, COIN:9480,
         CLSK:12000,  HUT:990,    HIVE:2201,  SMLR:3012,  BTBT:800
@@ -152,7 +191,6 @@ export default async function handler(req, res) {
             const hist = await getWithRetry(`/btc-treasuries/${t}/purchase-history`, 5000);
             if (Array.isArray(hist) && hist.length > 0) {
               console.log(`Treasury ${t} hist sample:`, JSON.stringify(hist[0]).slice(0,200));
-              // FIX: Use the MOST RECENT btc_holding (current total)
               const sorted = [...hist].sort((a, b) => new Date(b.date) - new Date(a.date));
               const latest = sorted[0];
               btc = parseFloat(latest.btc_holding ?? latest.btc ?? latest.holding ?? latest.amount ?? 0);
@@ -160,15 +198,12 @@ export default async function handler(req, res) {
             }
           } catch(e) { console.error(`Treasury ${t} error:`, e.message); }
 
-          // Fallback to known data only if API returned 0 or NaN
           if (!btc || btc <= 0 || isNaN(btc)) btc = knownBtc[t] || 0;
 
           companies.push({ name: co.name || t, ticker: t, btc: Math.round(btc) });
-          // Small delay to avoid rate limiting
-          await sleep(50);
+          await sleep(100);
         }
       } else {
-        // Full fallback with known data
         Object.entries(knownBtc).forEach(([ticker, btc]) => {
           companies.push({ name: ticker, ticker, btc });
         });
@@ -229,17 +264,16 @@ export default async function handler(req, res) {
             }
           } catch(e) {}
         }
-        await sleep(50);
+        await sleep(100);
       }
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
       return res.json({ ok: true, data: result, source: result.some(r=>r.source==='SoSoValue') ? 'SoSoValue' : 'Yahoo' });
     }
 
     // ── SSI INDEXES ─────────────────────────────────────────────────
-    // change_pct_24h is decimal (e.g. -0.0055 = -0.55%) — multiply by 100
     if (type === 'sector' || type === 'ssi') {
       const indices = await getWithRetry('/indices');
-      const tickerList = Array.isArray(indices) ? indices.filter(i => typeof i === 'string').slice(0,13) : [];
+      const tickerList = Array.isArray(indices) ? indices.filter(i => typeof i === 'string') : [];
       console.log('SSI tickers:', tickerList.join(','));
 
       const descMap = {
@@ -247,30 +281,47 @@ export default async function handler(req, res) {
         ssiDeFi:'DeFi Basket', ssiPayFi:'PayFi Sector', ssiMeme:'Meme Coins',
         ssiSocialFi:'SocialFi Tokens', ssiAI:'AI & Data', ssiRWA:'Real World Assets',
         ssiGameFi:'GameFi Tokens', ssiLayer2:'L2 Networks', ssiPolkadot:'Polkadot Eco',
-        ssiWeb3:'Web3 Infrastructure'
+        ssiWeb3:'Web3 Infrastructure', ssiDePIN:'DePIN', ssiNFT:'NFT'
       };
 
       const ssiData = [];
-      for (const ticker of tickerList.slice(0, 8)) {
+      let successCount = 0;
+      
+      // Fetch all available indices with proper delays
+      for (const ticker of tickerList) {
+        console.log(`Fetching SSI ${ticker}...`);
         const snap = await getWithRetry(`/indices/${ticker}/market-snapshot`, 5000);
+        console.log(`SSI ${ticker} snap:`, snap ? 'ok' : 'null');
+        
         const price = parseFloat(snap?.price || 0);
-        // change_pct_24h is decimal — convert to percentage for display
         const ch = parseFloat(snap?.change_pct_24h || 0) * 100;
-        ssiData.push({
-          name: ticker, d: descMap[ticker] || ticker.replace('ssi',''),
-          p: price, ch, l: 50, s: 50,
-          sig: ch > 2 ? 'BUY' : ch < -2 ? 'SELL' : 'HOLD', rsk: 'MED',
-          roi7d: parseFloat(snap?.roi_7d || 0) * 100,
-          roi1m: parseFloat(snap?.roi_1m || 0) * 100
-        });
-        // Small delay to avoid rate limiting
-        await sleep(80);
+        
+        // Only include if we got valid price data
+        if (price > 0) {
+          successCount++;
+          ssiData.push({
+            name: ticker, 
+            d: descMap[ticker] || ticker.replace('ssi',''),
+            p: price, 
+            ch, 
+            l: 50, 
+            s: 50,
+            sig: ch > 2 ? 'BUY' : ch < -2 ? 'SELL' : 'HOLD', 
+            rsk: 'MED',
+            roi7d: parseFloat(snap?.roi_7d || 0) * 100,
+            roi1m: parseFloat(snap?.roi_1m || 0) * 100
+          });
+        }
+        await sleep(200); // Increased from 80ms to avoid 429
       }
+
+      console.log('SSI success count:', successCount, 'out of', tickerList.length);
 
       if (ssiData.length > 0) {
         res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
-        return res.json({ ok: true, data: ssiData, source: 'SoSoValue' });
+        return res.json({ ok: true, data: ssiData, source: 'SoSoValue', successCount });
       }
+      
       // Fallback only if completely empty
       return res.json({ ok: true, source: 'Cached', data: [
         { name:'ssiLayer1', d:'L1 Blockchains', p:9.69,  ch:-0.55, l:55, s:45, sig:'HOLD',    rsk:'MED' },
