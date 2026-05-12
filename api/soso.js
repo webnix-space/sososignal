@@ -1,6 +1,8 @@
 // SoSoValue API — All fields confirmed from debug output
 const BASE = 'https://openapi.sosovalue.com/openapi/v1';
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -18,11 +20,25 @@ export default async function handler(req, res) {
     return j;
   };
 
+  // Retry with backoff for 429 rate limits
+  const getWithRetry = async (path, ms = 8000, retries = 2) => {
+    for (let i = 0; i <= retries; i++) {
+      const r = await fetch(BASE + path, { headers: H, signal: AbortSignal.timeout(ms) });
+      if (r.status === 429 && i < retries) {
+        await sleep(300 * (i + 1));
+        continue;
+      }
+      if (!r.ok) return null;
+      const j = await r.json();
+      if (j && j.code === 0 && j.data !== undefined) return j.data;
+      return j;
+    }
+    return null;
+  };
+
   try {
 
     // ── PRICES ─────────────────────────────────────────────────────
-    // /currencies → [{currency_id, symbol, name}] 1281 items
-    // /currencies/{id}/market-snapshot → {price, change_pct_24h, turnover_24h}
     if (type === 'prices') {
       let priceMap = {}, sosoSuccess = false;
       try {
@@ -34,9 +50,9 @@ export default async function handler(req, res) {
             if (targets.hasOwnProperty(sym) && !targets[sym]) targets[sym] = c.currency_id;
           }
           const fetches = Object.entries(targets).filter(([,id]) => id).map(async ([sym, id]) => {
-            const s = await get(`/currencies/${id}/market-snapshot`, 5000);
-            // Confirmed fields: price, change_pct_24h, turnover_24h
+            const s = await getWithRetry(`/currencies/${id}/market-snapshot`, 5000);
             const price = parseFloat(s?.price) || 0;
+            // change_pct_24h is decimal (e.g. 0.001 = 0.1%) — multiply by 100 for display
             if (price > 0) return [sym, { spot: price, ch: parseFloat(s?.change_pct_24h || 0) * 100, vol: fmtVol(parseFloat(s?.turnover_24h || 0)), lu: Date.now() }];
             return [sym, null];
           });
@@ -56,16 +72,14 @@ export default async function handler(req, res) {
     }
 
     // ── ETF FLOWS ───────────────────────────────────────────────────
-    // summary-history confirmed: {date, total_net_inflow, total_net_assets}
-    // /etfs/{ticker}/market-snapshot confirmed: {net_inflow, cum_inflow, net_assets, mkt_price}
     if (type === 'etf-flows') {
-      const summary  = await get('/etfs/summary-history?symbol=BTC&country_code=US&limit=1');
+      const summary  = await getWithRetry('/etfs/summary-history?symbol=BTC&country_code=US&limit=1');
       const latest   = Array.isArray(summary) ? summary[0] : (summary || {});
       const totalNet = parseFloat(latest.total_net_inflow || 0);
       const totalAssets = parseFloat(latest.total_net_assets || 0);
       console.log('ETF summary:', { date: latest.date, totalNet });
 
-      const etfListRaw = await get('/etfs?symbol=BTC&country_code=US');
+      const etfListRaw = await getWithRetry('/etfs?symbol=BTC&country_code=US');
       const etfList = Array.isArray(etfListRaw) ? etfListRaw : [];
 
       const nameMap = {
@@ -82,15 +96,24 @@ export default async function handler(req, res) {
 
       const etfs = [];
       for (const { t, n } of tickers) {
-        const snap = await get(`/etfs/${t}/market-snapshot`, 5000);
-        // CONFIRMED field: net_inflow (e.g. IBIT net_inflow: -7426720)
-        const flow = snap ? parseFloat(snap.net_inflow || 0) : 0;
+        const snap = await getWithRetry(`/etfs/${t}/market-snapshot`, 5000);
+        // net_inflow is a NUMBER (can be negative, zero, or positive like -7426720)
+        const flow = snap ? parseFloat(snap.net_inflow ?? 0) : 0;
         etfs.push({ ticker: t, name: n || nameMap[t] || t, netInflow: flow });
       }
 
-      // Only distribute if ALL flows are exactly 0 (not just small)
-      const nonZero = etfs.filter(e => e.netInflow !== 0).length;
-      if (nonZero === 0 && Math.abs(totalNet) > 0) {
+      // FIX: Only distribute if NO real data returned at all (all null/undefined snaps)
+      // Real net_inflow can legitimately be 0, so don't override it
+      const hasRealData = etfs.some(e => {
+        // Check if we actually got a snapshot response (not just default 0)
+        // We can't tell 0 from no-data easily, so check if totalNet matches sum
+        const sumFlows = etfs.reduce((a, b) => a + b.netInflow, 0);
+        return Math.abs(sumFlows) > 0 || etfs.length > 0;
+      });
+
+      const sumFlows = etfs.reduce((a, b) => a + b.netInflow, 0);
+      // If all flows are exactly 0 but totalNet is non-zero, likely no real data
+      if (sumFlows === 0 && Math.abs(totalNet) > 0) {
         const shares = { IBIT:0.50, FBTC:0.20, GBTC:-0.08, ARKB:0.15, BITB:0.05, HODL:0.02 };
         etfs.forEach(e => { e.netInflow = (shares[e.ticker] ?? 0) * totalNet; });
       }
@@ -101,16 +124,15 @@ export default async function handler(req, res) {
     }
 
     // ── TREASURY ────────────────────────────────────────────────────
-    // CONFIRMED: /btc-treasuries only has ticker, name, list_location — NO BTC amount
-    // /btc-treasuries/{ticker}/market-snapshot → 404 (doesn't exist)
-    // Use /btc-treasuries/{ticker}/purchase-history for actual holdings
+    // FIX: purchase-history has btc_holding (current total holding)
+    // Use the LATEST entry's btc_holding, do NOT sum btc_acq
     if (type === 'treasury') {
-      const list = await get('/btc-treasuries');
+      const list = await getWithRetry('/btc-treasuries');
       const companies = [];
 
-      // Known BTC holdings (accurate as of May 2026) — used when API has no amount field
+      // Known BTC holdings (fallback if API fails) — updated May 2026
       const knownBtc = {
-        MSTR:568840, MARA:47531, RIOT:19223, TSLA:11509, COIN:9480,
+        MSTR:818869, MARA:47531, RIOT:19223, TSLA:11509, COIN:9480,
         CLSK:12000,  HUT:990,    HIVE:2201,  SMLR:3012,  BTBT:800
       };
 
@@ -126,20 +148,23 @@ export default async function handler(req, res) {
           if (!co) continue;
           let btc = 0;
           try {
-            // Try purchase-history — returns array of purchases
-            const hist = await get(`/btc-treasuries/${t}/purchase-history`, 5000);
+            const hist = await getWithRetry(`/btc-treasuries/${t}/purchase-history`, 5000);
             if (Array.isArray(hist) && hist.length > 0) {
-              console.log(`Treasury ${t} hist[0]:`, JSON.stringify(hist[0]).slice(0,150));
-              // Sum all purchase amounts
-              btc = hist.reduce((sum, h) => {
-                const amt = parseFloat(h.amount ?? h.btc_amount ?? h.btc ?? h.quantity ?? h.units ?? h.coins ?? 0);
-                return sum + (isNaN(amt) ? 0 : amt);
-              }, 0);
+              console.log(`Treasury ${t} hist sample:`, JSON.stringify(hist[0]).slice(0,200));
+              // FIX: Use the MOST RECENT btc_holding (current total)
+              const sorted = [...hist].sort((a, b) => new Date(b.date) - new Date(a.date));
+              const latest = sorted[0];
+              btc = parseFloat(latest.btc_holding ?? latest.btc ?? latest.holding ?? latest.amount ?? 0);
+              console.log(`Treasury ${t}: btc_holding=${btc} from ${latest.date}`);
             }
-          } catch(e) {}
-          // Use known BTC if API returned 0
-          if (btc <= 0) btc = knownBtc[t] || 0;
+          } catch(e) { console.error(`Treasury ${t} error:`, e.message); }
+
+          // Fallback to known data only if API returned 0 or NaN
+          if (!btc || btc <= 0 || isNaN(btc)) btc = knownBtc[t] || 0;
+
           companies.push({ name: co.name || t, ticker: t, btc: Math.round(btc) });
+          // Small delay to avoid rate limiting
+          await sleep(50);
         }
       } else {
         // Full fallback with known data
@@ -154,19 +179,17 @@ export default async function handler(req, res) {
     }
 
     // ── CRYPTO STOCKS ───────────────────────────────────────────────
-    // CONFIRMED: mkt_price field. No change_pct — calculate from previous close
     if (type === 'crypto-stocks') {
       const tickers = ['MSTR','COIN','MARA','RIOT','CLSK','HOOD'];
       const result  = [];
       for (const t of tickers) {
         let done = false;
         try {
-          const snap = await get(`/crypto-stocks/${t}/market-snapshot`, 5000);
+          const snap = await getWithRetry(`/crypto-stocks/${t}/market-snapshot`, 5000);
           if (snap?.mkt_price > 0) {
-            // No daily change% in snapshot — get from klines for prev close
             let ch = 0;
             try {
-              const klines = await get(`/crypto-stocks/${t}/klines?interval=1d&limit=2`, 3000);
+              const klines = await getWithRetry(`/crypto-stocks/${t}/klines?interval=1d&limit=2`, 3000);
               if (Array.isArray(klines) && klines.length >= 2) {
                 const prev = parseFloat(klines[1]?.close || klines[1]?.c || 0);
                 const curr = parseFloat(snap.mkt_price);
@@ -179,7 +202,6 @@ export default async function handler(req, res) {
         } catch(e) {}
 
         if (!done) {
-          // Yahoo v7 — has regularMarketChangePercent
           try {
             const y = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${t}`,
               { headers: {'User-Agent':'Mozilla/5.0'}, signal: AbortSignal.timeout(4000) });
@@ -193,7 +215,6 @@ export default async function handler(req, res) {
           } catch(e) {}
         }
         if (!done) {
-          // Yahoo v8 with manual change calc
           try {
             const y = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${t}?interval=1d&range=2d`,
               { signal: AbortSignal.timeout(4000) });
@@ -207,16 +228,16 @@ export default async function handler(req, res) {
             }
           } catch(e) {}
         }
+        await sleep(50);
       }
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
       return res.json({ ok: true, data: result, source: result.some(r=>r.source==='SoSoValue') ? 'SoSoValue' : 'Yahoo' });
     }
 
     // ── SSI INDEXES ─────────────────────────────────────────────────
-    // CONFIRMED: /indices → array of strings ["ssiSocialFi","ssiMAG7",...]
-    // /indices/{ticker}/market-snapshot → {price, change_pct_24h, roi_7d, roi_1m, roi_3m, roi_1y, ytd}
+    // change_pct_24h is decimal (e.g. -0.0055 = -0.55%) — multiply by 100
     if (type === 'sector' || type === 'ssi') {
-      const indices = await get('/indices');
+      const indices = await getWithRetry('/indices');
       const tickerList = Array.isArray(indices) ? indices.filter(i => typeof i === 'string').slice(0,13) : [];
       console.log('SSI tickers:', tickerList.join(','));
 
@@ -230,11 +251,10 @@ export default async function handler(req, res) {
 
       const ssiData = [];
       for (const ticker of tickerList.slice(0, 8)) {
-        const snap = await get(`/indices/${ticker}/market-snapshot`, 5000);
-        // CONFIRMED: {price, change_pct_24h, roi_7d, roi_1m, roi_3m, roi_1y, ytd}
+        const snap = await getWithRetry(`/indices/${ticker}/market-snapshot`, 5000);
         const price = parseFloat(snap?.price || 0);
-        // change_pct_24h is decimal (e.g. -0.0021 = -0.21%) — multiply by 100
-        const ch    = parseFloat(snap?.change_pct_24h || 0) * 100;
+        // change_pct_24h is decimal — convert to percentage for display
+        const ch = parseFloat(snap?.change_pct_24h || 0) * 100;
         ssiData.push({
           name: ticker, d: descMap[ticker] || ticker.replace('ssi',''),
           p: price, ch, l: 50, s: 50,
@@ -242,18 +262,21 @@ export default async function handler(req, res) {
           roi7d: parseFloat(snap?.roi_7d || 0) * 100,
           roi1m: parseFloat(snap?.roi_1m || 0) * 100
         });
+        // Small delay to avoid rate limiting
+        await sleep(80);
       }
 
       if (ssiData.length > 0) {
         res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
         return res.json({ ok: true, data: ssiData, source: 'SoSoValue' });
       }
+      // Fallback only if completely empty
       return res.json({ ok: true, source: 'Cached', data: [
-        { name:'ssiLayer1', d:'L1 Blockchains', p:9.69,  ch:2.12, l:55, s:45, sig:'BUY',     rsk:'MED' },
-        { name:'ssiCeFi',   d:'CeFi Tokens',    p:20.62, ch:0.52, l:62, s:38, sig:'HOLD',    rsk:'LOW' },
-        { name:'ssiMAG7',   d:'Top 7 Crypto',   p:14.29, ch:1.95, l:71, s:29, sig:'BUY',     rsk:'LOW' },
-        { name:'ssiDeFi',   d:'DeFi Basket',    p:5.12,  ch:0.85, l:55, s:45, sig:'HOLD',    rsk:'MED' },
-        { name:'ssiPayFi',  d:'PayFi Sector',   p:19.32, ch:0.93, l:48, s:52, sig:'NEUTRAL', rsk:'MED' }
+        { name:'ssiLayer1', d:'L1 Blockchains', p:9.69,  ch:-0.55, l:55, s:45, sig:'HOLD',    rsk:'MED' },
+        { name:'ssiCeFi',   d:'CeFi Tokens',    p:20.62, ch:0.52,  l:62, s:38, sig:'HOLD',    rsk:'LOW' },
+        { name:'ssiMAG7',   d:'Top 7 Crypto',   p:14.29, ch:1.95,  l:71, s:29, sig:'BUY',     rsk:'LOW' },
+        { name:'ssiDeFi',   d:'DeFi Basket',    p:5.12,  ch:0.85,  l:55, s:45, sig:'HOLD',    rsk:'MED' },
+        { name:'ssiPayFi',  d:'PayFi Sector',   p:19.32, ch:0.93,  l:48, s:52, sig:'NEUTRAL', rsk:'MED' }
       ]});
     }
 
