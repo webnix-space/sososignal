@@ -1,6 +1,7 @@
 {
   "version": 2,
   "name": "onchainedge",
+  "outputDirectory": ".",
   "rewrites": [
     { "source": "/api/sodex", "destination": "/api/sodex.js" },
     { "source": "/api/soso", "destination": "/api/soso.js" },
