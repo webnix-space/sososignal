@@ -1,0 +1,101 @@
+// SoDEX API — Live prices, NO static fallbacks, cache-busting
+const SPOT_BASE = 'https://mainnet-gw.sodex.dev/api/v1/spot';
+const TESTNET_BASE = 'https://testnet-gw.sodex.dev/api/v1/spot';
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  // NO CACHE — always fresh
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const { testnet } = req.query;
+  const base = testnet === '1' ? TESTNET_BASE : SPOT_BASE;
+
+  // ── Try SoDEX first ──────────────────────────────────────────
+  try {
+    const r = await fetch(`${base}/markets/tickers`, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'OnchainEdge/2.0'
+      },
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const raw = await r.json();
+    const items = raw?.data || [];
+
+    if (items.length > 0) {
+      const parsed = items
+        .map(t => {
+          const price = parseFloat(t.lastPx);
+          if (!isFinite(price) || price <= 0) return null;
+          const rawSym = t.symbol || '';
+          const displaySym = rawSym
+            .replace(/^v/, '')
+            .replace(/_vUSDC$/, '/USDC')
+            .replace(/_v/, '/');
+          return {
+            symbol: displaySym || rawSym,
+            symbolID: t.symbolID || null,
+            lastPrice: String(price),
+            priceChange: String((parseFloat(t.changePct || 0)).toFixed(2)),
+            volume: String(Math.round(parseFloat(t.volume || 0))),
+            quoteVolume: String(Math.round(parseFloat(t.quoteVolume || 0))),
+            source: testnet === '1' ? 'sodex-testnet' : 'sodex-live',
+            updatedAt: Date.now()
+          };
+        })
+        .filter(x => x);
+
+      return res.json({
+        ok: true,
+        data: parsed,
+        source: testnet === '1' ? 'sodex-testnet' : 'sodex-live',
+        pairCount: parsed.length,
+        updatedAt: Date.now()
+      });
+    }
+  } catch (e) {
+    console.error('SoDEX failed:', e.message);
+  }
+
+  // ── CoinGecko fallback (still live, not static) ───────────────
+  try {
+    const r = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true',
+      { signal: AbortSignal.timeout(6000) }
+    );
+    if (r.ok) {
+      const d = await r.json();
+      const pairs = [
+        { id: 'bitcoin', sym: 'BTC/USDC' },
+        { id: 'ethereum', sym: 'ETH/USDC' },
+        { id: 'solana', sym: 'SOL/USDC' },
+        { id: 'binancecoin', sym: 'BNB/USDC' },
+      ].filter(x => d[x.id]?.usd > 0).map(x => ({
+        symbol: x.sym,
+        symbolID: null,
+        lastPrice: String(d[x.id].usd),
+        priceChange: String((d[x.id].usd_24h_change || 0).toFixed(2)),
+        volume: String(Math.round(d[x.id].usd_24h_vol || 0)),
+        quoteVolume: String(Math.round(d[x.id].usd_24h_vol || 0)),
+        source: 'coingecko',
+        updatedAt: Date.now()
+      }));
+      return res.json({ ok: true, data: pairs, source: 'coingecko', pairCount: pairs.length, updatedAt: Date.now() });
+    }
+  } catch (e) {
+    console.error('CoinGecko fallback:', e.message);
+  }
+
+  // ── No static fallback — return error so user knows ──────────
+  return res.status(503).json({
+    ok: false,
+    error: 'All price sources unavailable. SoDEX and CoinGecko both failed.',
+    updatedAt: Date.now()
+  });
+}
