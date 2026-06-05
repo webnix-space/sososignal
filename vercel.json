@@ -35,12 +35,6 @@
       ]
     }
   ],
-  "env": {
-    "SOSO_API_KEY": "@soso_api_key",
-    "GROQ_API_KEY": "@groq_api_key",
-    "UPSTASH_REDIS_REST_URL": "@upstash_redis_url",
-    "UPSTASH_REDIS_REST_TOKEN": "@upstash_redis_token"
-  },
   "functions": {
     "api/**/*.js": {
       "maxDuration": 30
