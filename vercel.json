@@ -1,49 +1,16 @@
 {
   "version": 2,
   "name": "onchainedge",
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/sodex",
-      "dest": "/api/sodex.js"
-    },
-    {
-      "src": "/api/soso",
-      "dest": "/api/soso.js"
-    },
-    {
-      "src": "/api/signal",
-      "dest": "/api/signal.js"
-    },
-    {
-      "src": "/api/news",
-      "dest": "/api/news.js"
-    },
-    {
-      "src": "/api/history",
-      "dest": "/api/history.js"
-    },
-    {
-      "src": "/api/trade",
-      "dest": "/api/trade.js"
-    },
-    {
-      "src": "/api/setup",
-      "dest": "/api/setup.js"
-    },
-    {
-      "src": "/api/ws",
-      "dest": "/api/ws.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+  "rewrites": [
+    { "source": "/api/sodex", "destination": "/api/sodex.js" },
+    { "source": "/api/soso", "destination": "/api/soso.js" },
+    { "source": "/api/signal", "destination": "/api/signal.js" },
+    { "source": "/api/news", "destination": "/api/news.js" },
+    { "source": "/api/history", "destination": "/api/history.js" },
+    { "source": "/api/trade", "destination": "/api/trade.js" },
+    { "source": "/api/setup", "destination": "/api/setup.js" },
+    { "source": "/api/ws", "destination": "/api/ws.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
