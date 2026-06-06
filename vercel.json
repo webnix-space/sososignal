@@ -1,10 +1,7 @@
 {
   "version": 2,
   "name": "onchainedge",
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "api/**/*.js", "use": "@vercel/node" }
-  ],
+  "outputDirectory": "public",
   "rewrites": [
     { "source": "/api/sodex", "destination": "/api/sodex.js" },
     { "source": "/api/soso", "destination": "/api/soso.js" },
