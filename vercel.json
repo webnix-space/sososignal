@@ -1,11 +1,17 @@
 {
   "version": 2,
   "name": "onchainedge",
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "api/**/*.js", "use": "@vercel/node" }
+  "rewrites": [
+    { "source": "/api/sodex", "destination": "/api/sodex.js" },
+    { "source": "/api/soso", "destination": "/api/soso.js" },
+    { "source": "/api/signal", "destination": "/api/signal.js" },
+    { "source": "/api/news", "destination": "/api/news.js" },
+    { "source": "/api/history", "destination": "/api/history.js" },
+    { "source": "/api/trade", "destination": "/api/trade.js" },
+    { "source": "/api/setup", "destination": "/api/setup.js" },
+    { "source": "/api/ws", "destination": "/api/ws.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
-  "rewrites": [...],
   "headers": [...],
   "functions": { "api/**/*.js": { "maxDuration": 30 } }
 }
