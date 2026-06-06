@@ -1,4 +1,6 @@
 {
+  {
+  "type": "module",
   "name": "onchainedge",
   "version": "2.0.0",
   "description": "AI-powered crypto signal terminal with real-time SoDEX trading",
