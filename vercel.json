@@ -1,44 +1,11 @@
 {
   "version": 2,
   "name": "onchainedge",
-  "outputDirectory": "public",
-  "rewrites": [
-    { "source": "/api/sodex", "destination": "/api/sodex.js" },
-    { "source": "/api/soso", "destination": "/api/soso.js" },
-    { "source": "/api/signal", "destination": "/api/signal.js" },
-    { "source": "/api/news", "destination": "/api/news.js" },
-    { "source": "/api/history", "destination": "/api/history.js" },
-    { "source": "/api/trade", "destination": "/api/trade.js" },
-    { "source": "/api/setup", "destination": "/api/setup.js" },
-    { "source": "/api/ws", "destination": "/api/ws.js" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "api/**/*.js", "use": "@vercel/node" }
   ],
-  "headers": [
-    {
-      "source": "/api/sodex",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, proxy-revalidate" },
-        { "key": "Pragma", "value": "no-cache" },
-        { "key": "Expires", "value": "0" }
-      ]
-    },
-    {
-      "source": "/api/soso",
-      "headers": [
-        { "key": "Cache-Control", "value": "s-maxage=60, stale-while-revalidate" }
-      ]
-    },
-    {
-      "source": "/api/ws",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache" },
-        { "key": "Connection", "value": "keep-alive" }
-      ]
-    }
-  ],
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 30
-    }
-  }
+  "rewrites": [...],
+  "headers": [...],
+  "functions": { "api/**/*.js": { "maxDuration": 30 } }
 }
