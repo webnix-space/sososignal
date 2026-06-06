@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OnchainEdge — AI Crypto Terminal</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+      background: #0a0e1a;
+      color: #e0e6ed;
+      min-height: 100vh;
+    }
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 2rem; border-bottom: 1px solid #1a2332;
+    }
+    .logo { display: flex; align-items: center; gap: 0.5rem; font-size: 1.2rem; font-weight: 700; color: #00d4aa; }
+    .status { display: flex; gap: 1rem; font-size: 0.8rem; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+    .status-dot.green { background: #00d4aa; }
+    .status-dot.red { background: #ff4757; }
+    .status-dot.yellow { background: #ffa502; }
+    .hero { text-align: center; padding: 3rem 1rem; }
+    .hero h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .hero p { color: #8892b0; max-width: 600px; margin: 0 auto; }
+    .controls { display: flex; gap: 1rem; justify-content: center; padding: 1rem; flex-wrap: wrap; }
+    .btn {
+      padding: 0.6rem 1.2rem; border-radius: 8px; border: 1px solid #1a2332;
+      background: #0f1623; color: #e0e6ed; cursor: pointer; font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: #1a2332; border-color: #00d4aa; }
+    .btn.primary { background: #00d4aa; color: #0a0e1a; border-color: #00d4aa; }
+    .btn.primary:hover { background: #00b894; }
+    select.btn { appearance: none; padding-right: 2rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; padding: 1rem 2rem; max-width: 1400px; margin: 0 auto; }
+    .card {
+      background: #0f1623; border: 1px solid #1a2332; border-radius: 12px;
+      padding: 1.5rem; transition: border-color 0.2s;
+    }
+    .card:hover { border-color: #00d4aa; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .card-title { font-size: 0.9rem; color: #8892b0; text-transform: uppercase; letter-spacing: 1px; }
+    .card-source { font-size: 0.7rem; color: #00d4aa; background: rgba(0,212,170,0.1); padding: 2px 8px; border-radius: 4px; }
+    .price-display { font-size: 2rem; font-weight: 700; margin: 0.5rem 0; }
+    .price-change { font-size: 0.9rem; }
+    .price-change.positive { color: #00d4aa; }
+    .price-change.negative { color: #ff4757; }
+    .error-banner {
+      background: rgba(255,71,87,0.1); border: 1px solid #ff4757;
+      color: #ff4757; padding: 0.8rem 1rem; border-radius: 8px;
+      margin: 1rem 2rem; font-size: 0.85rem; display: none;
+    }
+    .error-banner.visible { display: block; }
+    .loading { color: #ffa502; font-size: 0.85rem; }
+    .timestamp { font-size: 0.75rem; color: #8892b0; margin-top: 0.5rem; }
+    .table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+    .table th, .table td { text-align: left; padding: 0.5rem; font-size: 0.85rem; border-bottom: 1px solid #1a2332; }
+    .table th { color: #8892b0; font-weight: 500; }
+    .signal-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 0.75rem; font-weight: 700;
+    }
+    .signal-badge.BUY { background: rgba(0,212,170,0.2); color: #00d4aa; }
+    .signal-badge.SELL { background: rgba(255,71,87,0.2); color: #ff4757; }
+    .signal-badge.HOLD, .signal-badge.NEUTRAL { background: rgba(136,146,176,0.2); color: #8892b0; }
+    .ws-status { font-family: monospace; font-size: 0.8rem; }
+    .ws-status.connected { color: #00d4aa; }
+    .ws-status.disconnected { color: #ff4757; }
+    .ws-status.connecting { color: #ffa502; }
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 1.5rem; }
+      .grid { grid-template-columns: 1fr; padding: 1rem; }
+      .controls { flex-direction: column; align-items: center; }
+    }
+  </style>
+<base target="_blank">
+</head>
+<body>
+  <div class="header">
+    <div class="logo">⚡ ONCHAINEDGE</div>
+    <div class="status">
+      <span><span class="status-dot green" id="soso-status"></span>SoSoValue</span>
+      <span><span class="status-dot green" id="groq-status"></span>Groq AI</span>
+      <span><span class="status-dot green" id="live-status"></span>Live Data</span>
+      <span class="ws-status connecting" id="ws-status">WS: Connecting...</span>
+    </div>
+  </div>
+
+  <div class="hero">
+    <h1>The One-Person Fund Manager</h1>
+    <p>Institutional crypto intelligence for solo traders. Transparent AI signals with confidence evolution, backtested accuracy, and EIP-712 execution readiness.</p>
+  </div>
+
+  <div class="controls">
+    <button class="btn" onclick="connectWallet()">🔌 Connect Wallet</button>
+    <button class="btn primary" onclick="showSetupModal()">🔑 Setup API Key</button>
+    <select class="btn" id="symbol-select" onchange="changeSymbol()">
+      <option value="BTC">BTC</option>
+      <option value="ETH">ETH</option>
+      <option value="SOL">SOL</option>
+      <option value="BNB">BNB</option>
+    </select>
+    <select class="btn" id="market-select" onchange="changeMarket()">
+      <option value="1">Testnet</option>
+      <option value="0">Mainnet</option>
+    </select>
+    <button class="btn" onclick="refreshAll()">🔄 Refresh</button>
+  </div>
+
+  <div class="error-banner" id="error-banner"></div>
+
+  <div class="grid">
+    <!-- Main Price Cards -->
+    <div class="card" id="card-btc">
+      <div class="card-header">
+        <span class="card-title">BTC</span>
+        <span class="card-source" id="source-btc">--</span>
+      </div>
+      <div class="price-display" id="price-btc">--</div>
+      <div class="price-change" id="change-btc">--</div>
+      <div class="timestamp" id="time-btc">--</div>
+    </div>
+
+    <div class="card" id="card-eth">
+      <div class="card-header">
+        <span class="card-title">ETH</span>
+        <span class="card-source" id="source-eth">--</span>
+      </div>
+      <div class="price-display" id="price-eth">--</div>
+      <div class="price-change" id="change-eth">--</div>
+      <div class="timestamp" id="time-eth">--</div>
+    </div>
+
+    <div class="card" id="card-sol">
+      <div class="card-header">
+        <span class="card-title">SOL</span>
+        <span class="card-source" id="source-sol">--</span>
+      </div>
+      <div class="price-display" id="price-sol">--</div>
+      <div class="price-change" id="change-sol">--</div>
+      <div class="timestamp" id="time-sol">--</div>
+    </div>
+
+    <div class="card" id="card-bnb">
+      <div class="card-header">
+        <span class="card-title">BNB</span>
+        <span class="card-source" id="source-bnb">--</span>
+      </div>
+      <div class="price-display" id="price-bnb">--</div>
+      <div class="price-change" id="change-bnb">--</div>
+      <div class="timestamp" id="time-bnb">--</div>
+    </div>
+
+    <!-- Market Pulse -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📈 Market Pulse Score (0-100)</span>
+      </div>
+      <div class="price-display" id="pulse-score">--</div>
+    </div>
+
+    <!-- ETF Flow -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🎯 ETF Net Flow</span>
+        <span class="card-source">SoSoValue ETF API</span>
+      </div>
+      <div class="price-display" id="etf-flow">--</div>
+      <div id="etf-details"></div>
+    </div>
+
+    <!-- Top SSI Sector -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🏆 Top SSI Sector</span>
+        <span class="card-source">SoSoValue SSI API</span>
+      </div>
+      <div id="ssi-sector">--</div>
+    </div>
+
+    <!-- BTC Treasury -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🏦 Institutional BTC</span>
+        <span class="card-source">SoSoValue Treasury</span>
+      </div>
+      <div id="treasury-data">--</div>
+    </div>
+
+    <!-- AI Signal -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <span class="card-title">🤖 AI Signal Engine</span>
+        <span class="card-source">Groq + SoSoValue</span>
+      </div>
+      <div id="ai-signal">Loading AI signal...</div>
+    </div>
+
+    <!-- Trading Panel -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <span class="card-title">⚡ Execute SoDEX Order</span>
+        <span class="card-source">EIP-712 Testnet</span>
+      </div>
+      <div id="trading-panel">
+        <p>Connect wallet to enable trading</p>
+      </div>
+    </div>
+
+    <!-- Crypto Stocks -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <span class="card-title">🏢 Crypto Stocks</span>
+        <span class="card-source">SoSoValue</span>
+      </div>
+      <div id="crypto-stocks">Loading...</div>
+    </div>
+
+    <!-- ETF Tracker -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <span class="card-title">💰 ETF Flow Tracker</span>
+        <span class="card-source">SoSoValue</span>
+      </div>
+      <div id="etf-tracker">Loading ETF data...</div>
+    </div>
+
+    <!-- SSI Indices -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <span class="card-title">📊 SoSoValue Sector Indices (SSI)</span>
+        <span class="card-source">SoSoValue</span>
+      </div>
+      <div id="ssi-indices">Loading SSI data...</div>
+    </div>
+
+    <!-- SoDEX Markets -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <span class="card-title">📈 SoDEX Markets</span>
+        <span class="card-source">SoDEX</span>
+      </div>
+      <div id="sodex-markets">Loading SoDEX markets...</div>
+    </div>
+
+    <!-- News -->
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <span class="card-title">📰 Market News</span>
+      </div>
+      <div id="news-feed">Loading news...</div>
+    </div>
+  </div>
+
+  <script>
+    // ─── CONFIG ───────────────────────────────────────────────────────────
+    const API_BASE = '';
+    let currentSymbol = 'BTC';
+    let isTestnet = true;
+    let wsConnection = null;
+    let lastUpdate = null;
+
+    // ─── ERROR HANDLING ────────────────────────────────────────────────────
+    function showError(msg) {
+      const banner = document.getElementById('error-banner');
+      banner.textContent = '⚠️ ' + msg;
+      banner.classList.add('visible');
+      console.error(msg);
+      setTimeout(() => banner.classList.remove('visible'), 8000);
+    }
+
+    function setStatus(id, status) {
+      const dot = document.getElementById(id);
+      dot.className = 'status-dot ' + status;
+    }
+
+    // ─── FETCH WITH TIMEOUT ────────────────────────────────────────────────
+    async function fetchAPI(url, options = {}) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      try {
+        const res = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeout);
+        const data = await res.json();
+        if (!data.ok) {
+          throw new Error(data.error || 'API returned ok: false');
+        }
+        return data;
+      } catch (e) {
+        clearTimeout(timeout);
+        throw e;
+      }
+    }
+
+    // ─── LOAD PRICES ───────────────────────────────────────────────────────
+    async function loadPrices() {
+      try {
+        // Try SoSoValue first
+        const data = await fetchAPI(`${API_BASE}/api/soso?type=prices`);
+        const prices = data.data;
+
+        ['BTC', 'ETH', 'SOL', 'BNB'].forEach(sym => {
+          const p = prices[sym];
+          if (p) {
+            document.getElementById(`price-${sym.toLowerCase()}`).textContent = p.spot ? `$${p.spot.toLocaleString()}` : '--';
+            const chEl = document.getElementById(`change-${sym.toLowerCase()}`);
+            chEl.textContent = p.ch ? `${p.ch > 0 ? '+' : ''}${p.ch.toFixed(2)}%` : '--';
+            chEl.className = 'price-change ' + (p.ch > 0 ? 'positive' : p.ch < 0 ? 'negative' : '');
+            document.getElementById(`source-${sym.toLowerCase()}`).textContent = p.source || 'SoSoValue';
+            document.getElementById(`time-${sym.toLowerCase()}`).textContent = new Date().toLocaleTimeString();
+          }
+        });
+        setStatus('soso-status', 'green');
+        setStatus('live-status', 'green');
+        lastUpdate = Date.now();
+      } catch (e) {
+        console.warn('SoSoValue prices failed:', e.message);
+        // Fallback to SoDEX
+        try {
+          const data = await fetchAPI(`${API_BASE}/api/sodex?t=${Date.now()}&testnet=${isTestnet ? 1 : 0}`);
+          const prices = {};
+          data.data.forEach(item => {
+            const sym = item.symbol.replace('/USDC', '');
+            prices[sym] = item;
+          });
+
+          ['BTC', 'ETH', 'SOL', 'BNB'].forEach(sym => {
+            const p = prices[sym];
+            if (p) {
+              document.getElementById(`price-${sym.toLowerCase()}`).textContent = p.lastPrice ? `$${parseFloat(p.lastPrice).toLocaleString()}` : '--';
+              const chEl = document.getElementById(`change-${sym.toLowerCase()}`);
+              chEl.textContent = p.priceChange ? `${parseFloat(p.priceChange) > 0 ? '+' : ''}${p.priceChange}%` : '--';
+              chEl.className = 'price-change ' + (parseFloat(p.priceChange) > 0 ? 'positive' : parseFloat(p.priceChange) < 0 ? 'negative' : '');
+              document.getElementById(`source-${sym.toLowerCase()}`).textContent = p.source || 'SoDEX';
+            }
+          });
+          setStatus('live-status', 'green');
+        } catch (e2) {
+          showError('All price sources failed: ' + e2.message);
+          setStatus('live-status', 'red');
+        }
+      }
+    }
+
+    // ─── LOAD ETF ────────────────────────────────────────────────────────────
+    async function loadETF() {
+      try {
+        const data = await fetchAPI(`${API_BASE}/api/soso?type=etf-flows`);
+        const d = data.data;
+        document.getElementById('etf-flow').textContent = d.totalNet ? `$${(d.totalNet / 1e6).toFixed(2)}M` : '$0';
+
+        let html = '<table class="table"><tr><th>Ticker</th><th>Net Inflow</th><th>Assets</th></tr>';
+        (d.etfs || []).slice(0, 5).forEach(etf => {
+          html += `<tr><td>${etf.ticker}</td><td>$${(etf.netInflow / 1e6).toFixed(2)}M</td><td>$${(etf.assets / 1e9).toFixed(2)}B</td></tr>`;
+        });
+        html += '</table>';
+        document.getElementById('etf-details').innerHTML = html;
+        document.getElementById('etf-tracker').innerHTML = html;
+      } catch (e) {
+        console.warn('ETF load failed:', e.message);
+        document.getElementById('etf-flow').textContent = 'N/A';
+      }
+    }
+
+    // ─── LOAD SSI ──────────────────────────────────────────────────────────
+    async function loadSSI() {
+      try {
+        const data = await fetchAPI(`${API_BASE}/api/soso?type=sector`);
+        const sectors = data.data || [];
+
+        // Find top performer
+        const top = sectors.reduce((a, b) => (a.ch > b.ch ? a : b), sectors[0]);
+        if (top) {
+          document.getElementById('ssi-sector').innerHTML = `
+            <div style="font-size:1.2rem;font-weight:700;">${top.n}</div>
+            <div class="price-change ${top.ch > 0 ? 'positive' : 'negative'}">${top.ch > 0 ? '+' : ''}${top.ch}%</div>
+            <span class="signal-badge ${top.sig}">${top.sig}</span>
+          `;
+        }
+
+        let html = '<table class="table"><tr><th>Sector</th><th>Price</th><th>24h</th><th>Signal</th></tr>';
+        sectors.forEach(s => {
+          html += `<tr><td>${s.n}</td><td>$${s.p}</td><td class="${s.ch > 0 ? 'positive' : 'negative'}">${s.ch > 0 ? '+' : ''}${s.ch}%</td><td><span class="signal-badge ${s.sig}">${s.sig}</span></td></tr>`;
+        });
+        html += '</table>';
+        document.getElementById('ssi-indices').innerHTML = html;
+      } catch (e) {
+        console.warn('SSI load failed:', e.message);
+        document.getElementById('ssi-sector').textContent = 'N/A';
+      }
+    }
+
+    // ─── LOAD TREASURY ─────────────────────────────────────────────────────
+    async function loadTreasury() {
+      try {
+        const data = await fetchAPI(`${API_BASE}/api/soso?type=treasury`);
+        const list = data.data || [];
+        let html = '<table class="table"><tr><th>Company</th><th>BTC Holdings</th></tr>';
+        list.slice(0, 5).forEach(t => {
+          html += `<tr><td>${t.tick}</td><td>${t.qty ? t.qty.toLocaleString() : 0} BTC</td></tr>`;
+        });
+        html += '</table>';
+        document.getElementById('treasury-data').innerHTML = html;
+      } catch (e) {
+        console.warn('Treasury load failed:', e.message);
+      }
+    }
+
+    // ─── LOAD CRYPTO STOCKS ────────────────────────────────────────────────
+    async function loadCryptoStocks() {
+      try {
+        const data = await fetchAPI(`${API_BASE}/api/soso?type=crypto-stocks`);
+        const stocks = data.data || [];
+        let html = '<table class="table"><tr><th>Ticker</th><th>Exchange</th><th>Price</th><th>24h</th></tr>';
+        stocks.forEach(s => {
+          html += `<tr><td>${s.tick}</td><td>${s.ex}</td><td>$${s.p || 0}</td><td class="${s.ch > 0 ? 'positive' : 'negative'}">${s.ch > 0 ? '+' : ''}${s.ch || 0}%</td></tr>`;
+        });
+        html += '</table>';
+        document.getElementById('crypto-stocks').innerHTML = html;
+      } catch (e) {
+        console.warn('Crypto stocks load failed:', e.message);
+      }
+    }
+
+    // ─── LOAD SODEX MARKETS ────────────────────────────────────────────────
+    async function loadSoDEXMarkets() {
+      try {
+        const data = await fetchAPI(`${API_BASE}/api/sodex?t=${Date.now()}&testnet=${isTestnet ? 1 : 0}`);
+        const markets = data.data || [];
+        let html = '<table class="table"><tr><th>Pair</th><th>Price</th><th>24h Change</th><th>Volume</th></tr>';
+        markets.slice(0, 10).forEach(m => {
+          html += `<tr><td>${m.symbol}</td><td>$${m.lastPrice}</td><td class="${parseFloat(m.priceChange) > 0 ? 'positive' : 'negative'}">${m.priceChange}%</td><td>$${m.volume}</td></tr>`;
+        });
+        html += '</table>';
+        document.getElementById('sodex-markets').innerHTML = html;
+      } catch (e) {
+        console.warn('SoDEX markets load failed:', e.message);
+      }
+    }
+
+    // ─── LOAD NEWS ─────────────────────────────────────────────────────────
+    async function loadNews() {
+      try {
+        const data = await fetchAPI(`${API_BASE}/api/soso?type=news`);
+        const items = data.data || [];
+        let html = '';
+        items.forEach(item => {
+          html += `<div style="padding:0.5rem 0;border-bottom:1px solid #1a2332;">
+            <a href="${item.url}" target="_blank" style="color:#00d4aa;text-decoration:none;">${item.title}</a>
+            <div style="font-size:0.75rem;color:#8892b0;">${item.source} · ${item.dateFormatted}</div>
+          </div>`;
+        });
+        document.getElementById('news-feed').innerHTML = html;
+      } catch (e) {
+        console.warn('News load failed:', e.message);
+      }
+    }
+
+    // ─── LOAD AI SIGNAL ────────────────────────────────────────────────────
+    async function loadAISignal() {
+      try {
+        const ctx = {
+          price: document.getElementById('price-btc').textContent.replace('$', '').replace(',', ''),
+          change: parseFloat(document.getElementById('change-btc').textContent) || 0
+        };
+        const res = await fetch(`${API_BASE}/api/signal`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'signal', symbol: 'BTC', marketContext: ctx })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          document.getElementById('ai-signal').innerHTML = `
+            <div style="display:flex;align-items:center;gap:1rem;">
+              <span class="signal-badge ${data.signal}">${data.signal}</span>
+              <span>${data.text}</span>
+            </div>
+          `;
+          setStatus('groq-status', 'green');
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (e) {
+        console.warn('AI signal failed:', e.message);
+        setStatus('groq-status', 'red');
+        document.getElementById('ai-signal').textContent = 'AI signal unavailable';
+      }
+    }
+
+    // ─── WEBSOCKET ─────────────────────────────────────────────────────────
+    function connectWebSocket() {
+      const wsStatus = document.getElementById('ws-status');
+      wsStatus.textContent = 'WS: Connecting...';
+      wsStatus.className = 'ws-status connecting';
+
+      try {
+        // Use SSE for Vercel compatibility
+        const evtSource = new EventSource(`${API_BASE}/api/ws?stream=prices&testnet=${isTestnet ? 1 : 0}&symbols=BTC_USDC,ETH_USDC,SOL_USDC,BNB_USDC`);
+        wsConnection = evtSource;
+
+        evtSource.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.error) {
+              console.warn('WS error:', data.error);
+              return;
+            }
+            const sym = data.symbol?.replace('_USDC', '').toLowerCase();
+            if (sym && document.getElementById(`price-${sym}`)) {
+              document.getElementById(`price-${sym}`).textContent = `$${parseFloat(data.lastPrice).toLocaleString()}`;
+              const chEl = document.getElementById(`change-${sym}`);
+              chEl.textContent = `${parseFloat(data.priceChange) > 0 ? '+' : ''}${data.priceChange}%`;
+              chEl.className = 'price-change ' + (parseFloat(data.priceChange) > 0 ? 'positive' : 'negative');
+              document.getElementById(`source-${sym}`).textContent = data.source || 'WS';
+            }
+            wsStatus.textContent = 'WS: Connected';
+            wsStatus.className = 'ws-status connected';
+          } catch (e) {
+            // Ignore parse errors
+          }
+        };
+
+        evtSource.onerror = () => {
+          wsStatus.textContent = 'WS: Disconnected';
+          wsStatus.className = 'ws-status disconnected';
+          evtSource.close();
+          // Fallback to REST polling
+          setTimeout(() => {
+            loadPrices();
+            connectWebSocket();
+          }, 5000);
+        };
+
+        evtSource.onopen = () => {
+          wsStatus.textContent = 'WS: Connected';
+          wsStatus.className = 'ws-status connected';
+        };
+      } catch (e) {
+        wsStatus.textContent = 'WS: Error';
+        wsStatus.className = 'ws-status disconnected';
+        console.error('WS connect error:', e);
+      }
+    }
+
+    // ─── REFRESH ALL ───────────────────────────────────────────────────────
+    async function refreshAll() {
+      document.getElementById('error-banner').classList.remove('visible');
+      await Promise.all([
+        loadPrices(),
+        loadETF(),
+        loadSSI(),
+        loadTreasury(),
+        loadCryptoStocks(),
+        loadSoDEXMarkets(),
+        loadNews()
+      ]);
+      await loadAISignal();
+    }
+
+    // ─── CONTROLS ──────────────────────────────────────────────────────────
+    function changeSymbol() {
+      currentSymbol = document.getElementById('symbol-select').value;
+      loadAISignal();
+    }
+
+    function changeMarket() {
+      isTestnet = document.getElementById('market-select').value === '1';
+      if (wsConnection) wsConnection.close();
+      connectWebSocket();
+      refreshAll();
+    }
+
+    function connectWallet() {
+      if (typeof window.ethereum !== 'undefined') {
+        window.ethereum.request({ method: 'eth_requestAccounts' })
+          .then(accounts => {
+            showError('Connected: ' + accounts[0].slice(0, 6) + '...' + accounts[0].slice(-4));
+          })
+          .catch(e => showError('Wallet connection failed: ' + e.message));
+      } else {
+        showError('MetaMask not detected');
+      }
+    }
+
+    function showSetupModal() {
+      showError('API Key setup - check the 🔑 Setup API Key button workflow');
+    }
+
+    // ─── INIT ──────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      refreshAll();
+      connectWebSocket();
+      // Auto-refresh every 30s as fallback
+      setInterval(() => {
+        if (!lastUpdate || Date.now() - lastUpdate > 30000) {
+          loadPrices();
+        }
+      }, 30000);
+    });
+  </script>
+</body>
+</html>
