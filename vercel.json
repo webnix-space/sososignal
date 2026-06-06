@@ -12,56 +12,33 @@
     }
   ],
   "routes": [
-    {
-      "src": "/api/soso",
-      "dest": "/api/soso.js"
-    },
-    {
-      "src": "/api/signal",
-      "dest": "/api/signal.js"
-    },
-    {
-      "src": "/api/sodex",
-      "dest": "/api/sodex.js"
-    },
-    {
-      "src": "/api/news",
-      "dest": "/api/news.js"
-    },
-    {
-      "src": "/api/history",
-      "dest": "/api/history.js"
-    },
-    {
-      "src": "/api/simulate",
-      "dest": "/api/simulate.js"
-    },
-    {
-      "src": "/api/trade",
-      "dest": "/api/trade.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+    { "src": "/api/soso",     "dest": "/api/soso.js" },
+    { "src": "/api/signal",   "dest": "/api/signal.js" },
+    { "src": "/api/sodex",    "dest": "/api/sodex.js" },
+    { "src": "/api/news",     "dest": "/api/news.js" },
+    { "src": "/api/history",  "dest": "/api/history.js" },
+    { "src": "/api/simulate", "dest": "/api/simulate.js" },
+    { "src": "/api/trade",    "dest": "/api/trade.js" },
+    { "src": "/api/setup",    "dest": "/api/setup.js" },
+    { "src": "/api/ws",       "dest": "/api/ws.js" },
+    { "src": "/(.*)",         "dest": "/index.html" }
   ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
-        }
+        { "key": "Access-Control-Allow-Origin",  "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/signal.js":   { "maxDuration": 30 },
+    "api/soso.js":     { "maxDuration": 30 },
+    "api/ws.js":       { "maxDuration": 15 },
+    "api/simulate.js": { "maxDuration": 15 },
+    "api/trade.js":    { "maxDuration": 15 },
+    "api/setup.js":    { "maxDuration": 15 }
+  }
 }
