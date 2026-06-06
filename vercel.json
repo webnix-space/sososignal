@@ -1,17 +1,67 @@
 {
   "version": 2,
-  "name": "onchainedge",
-  "rewrites": [
-    { "source": "/api/sodex", "destination": "/api/sodex.js" },
-    { "source": "/api/soso", "destination": "/api/soso.js" },
-    { "source": "/api/signal", "destination": "/api/signal.js" },
-    { "source": "/api/news", "destination": "/api/news.js" },
-    { "source": "/api/history", "destination": "/api/history.js" },
-    { "source": "/api/trade", "destination": "/api/trade.js" },
-    { "source": "/api/setup", "destination": "/api/setup.js" },
-    { "source": "/api/ws", "destination": "/api/ws.js" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "name": "onchainedge-wave2",
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    }
   ],
-  "headers": [...],
-  "functions": { "api/**/*.js": { "maxDuration": 30 } }
+  "routes": [
+    {
+      "src": "/api/soso",
+      "dest": "/api/soso.js"
+    },
+    {
+      "src": "/api/signal",
+      "dest": "/api/signal.js"
+    },
+    {
+      "src": "/api/sodex",
+      "dest": "/api/sodex.js"
+    },
+    {
+      "src": "/api/news",
+      "dest": "/api/news.js"
+    },
+    {
+      "src": "/api/history",
+      "dest": "/api/history.js"
+    },
+    {
+      "src": "/api/simulate",
+      "dest": "/api/simulate.js"
+    },
+    {
+      "src": "/api/trade",
+      "dest": "/api/trade.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
+    }
+  ]
 }
