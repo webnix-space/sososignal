@@ -1,13 +1,19 @@
 // api/history.js — Signal history from Upstash Redis
 // Fixed: accepts GET (not POST), correct key format signals:{asset}, proper response
+//
+// Fixed: Redis provisioned via Vercel's KV marketplace integration exposes
+// KV_REST_API_URL / KV_REST_API_TOKEN, not UPSTASH_REDIS_REST_URL /
+// UPSTASH_REDIS_REST_TOKEN. Same underlying Upstash REST API either way —
+// check both naming conventions so this works regardless of how Redis was
+// provisioned.
 
 import { Redis } from '@upstash/redis';
 
-const redis = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN
-    })
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+const redis = (redisUrl && redisToken)
+  ? new Redis({ url: redisUrl, token: redisToken })
   : null;
 
 export default async function handler(req, res) {
@@ -22,7 +28,7 @@ export default async function handler(req, res) {
     return res.json({
       ok: false,
       data: [],
-      error: 'Redis not configured. Add UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN to Vercel env vars.',
+      error: 'Redis not configured. Add UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (or KV_REST_API_URL + KV_REST_API_TOKEN) to Vercel env vars.',
       redisEnabled: false
     });
   }
