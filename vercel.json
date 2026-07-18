@@ -1,34 +1,54 @@
 {
   "version": 2,
-  "name": "onchainedge-wave2",
-  "routes": [
-    { "src": "/api/soso",     "dest": "/api/soso.js" },
-    { "src": "/api/signal",   "dest": "/api/signal.js" },
-    { "src": "/api/sodex",    "dest": "/api/sodex.js" },
-    { "src": "/api/news",     "dest": "/api/news.js" },
-    { "src": "/api/history",  "dest": "/api/history.js" },
-    { "src": "/api/simulate", "dest": "/api/simulate.js" },
-    { "src": "/api/trade",    "dest": "/api/trade.js" },
-    { "src": "/api/setup",    "dest": "/api/setup.js" },
-    { "src": "/api/ws",       "dest": "/api/ws.js" },
-    { "src": "/(.*)",         "dest": "/index.html" }
+  "name": "onchainedge",
+  "outputDirectory": ".",
+  "rewrites": [
+    { "source": "/api/sodex", "destination": "/api/sodex.js" },
+    { "source": "/api/soso", "destination": "/api/soso.js" },
+    { "source": "/api/signal", "destination": "/api/signal.js" },
+    { "source": "/api/news", "destination": "/api/news.js" },
+    { "source": "/api/history", "destination": "/api/history.js" },
+    { "source": "/api/trade", "destination": "/api/trade.js" },
+    { "source": "/api/setup", "destination": "/api/setup.js" },
+    { "source": "/api/ws", "destination": "/api/ws.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/sodex",
       "headers": [
-        { "key": "Access-Control-Allow-Origin",  "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+        { "key": "Cache-Control", "value": "s-maxage=30, stale-while-revalidate=300" }
+      ]
+    },
+    {
+      "source": "/api/soso",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=300, stale-while-revalidate=1800" }
+      ]
+    },
+    {
+      "source": "/api/news",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=600, stale-while-revalidate=1800" }
+      ]
+    },
+    {
+      "source": "/api/signal",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, no-cache" }
+      ]
+    },
+    {
+      "source": "/api/ws",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" },
+        { "key": "Connection", "value": "keep-alive" }
       ]
     }
   ],
   "functions": {
-    "api/signal.js":   { "maxDuration": 30 },
-    "api/soso.js":     { "maxDuration": 30 },
-    "api/ws.js":       { "maxDuration": 15 },
-    "api/simulate.js": { "maxDuration": 15 },
-    "api/trade.js":    { "maxDuration": 15 },
-    "api/setup.js":    { "maxDuration": 15 }
+    "api/**/*.js": {
+      "maxDuration": 30
+    }
   }
 }
