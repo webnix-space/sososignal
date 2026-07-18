@@ -1,0 +1,33 @@
+{
+  "rewrites": [
+    { "source": "/api/sodex", "destination": "/api/sodex.js" },
+    { "source": "/api/soso", "destination": "/api/soso.js" },
+    { "source": "/api/signal", "destination": "/api/signal.js" },
+    { "source": "/api/news", "destination": "/api/news.js" },
+    { "source": "/api/trade", "destination": "/api/trade.js" },
+    { "source": "/api/setup", "destination": "/api/setup.js" },
+    { "source": "/api/ws", "destination": "/api/ws.js" },
+    { "source": "/api/history", "destination": "/api/history.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    { "source": "/api/sodex", "headers": [{ "key": "Cache-Control", "value": "s-maxage=30, stale-while-revalidate" }] },
+    { "source": "/api/soso", "headers": [{ "key": "Cache-Control", "value": "s-maxage=60, stale-while-revalidate" }] },
+    { "source": "/api/ws", "headers": [{ "key": "Cache-Control", "value": "no-cache" }, { "key": "Connection", "value": "keep-alive" }] },
+    { "source": "/api/news", "headers": [{ "key": "Cache-Control", "value": "s-maxage=300, stale-while-revalidate=600" }] },
+    { "source": "/api/signal", "headers": [{ "key": "Cache-Control", "value": "no-store" }] },
+    { "source": "/api/trade", "headers": [{ "key": "Cache-Control", "value": "no-store" }] },
+    { "source": "/api/setup", "headers": [{ "key": "Cache-Control", "value": "no-store" }] },
+    { "source": "/api/history", "headers": [{ "key": "Cache-Control", "value": "s-maxage=60, stale-while-revalidate" }] }
+  ],
+  "functions": {
+    "api/sodex.js": { "maxDuration": 30 },
+    "api/soso.js": { "maxDuration": 30 },
+    "api/signal.js": { "maxDuration": 30 },
+    "api/news.js": { "maxDuration": 30 },
+    "api/trade.js": { "maxDuration": 30 },
+    "api/setup.js": { "maxDuration": 30 },
+    "api/ws.js": { "maxDuration": 30 },
+    "api/history.js": { "maxDuration": 30 }
+  }
+}
