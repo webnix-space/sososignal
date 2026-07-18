@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>OnchainEdge — AI Crypto Terminal</title>
+<style>
+:root{--bg:#0a0e1a;--card:#111827;--border:#1f2937;--text:#e5e7eb;--muted:#9ca3af;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--cyan:#06b6d4;--purple:#8b5cf6;--accent:#00d4aa;--font:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+.container{max-width:480px;margin:0 auto;padding:16px;padding-bottom:100px}
+.header{text-align:center;padding:20px 0}
+.header h1{font-size:28px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-flex;align-items:center;gap:8px}
+.header .subtitle{font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:1px;text-transform:uppercase}
+.status-bar{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:12px 0;font-size:11px}
+.status-bar .dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:4px}
+.status-bar .dot.on{background:var(--green)}
+.status-bar .dot.off{background:var(--red)}
+.status-bar .dot.warn{background:var(--yellow)}
+.status-bar span{color:var(--muted)}
+.wallet-row{display:flex;gap:8px;margin:12px 0}
+.wallet-btn{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--text);display:flex;align-items:center;gap:6px;cursor:pointer;transition:all .2s}
+.wallet-btn:hover{border-color:var(--accent)}
+.wallet-btn .addr{color:var(--accent);font-family:monospace;font-size:12px}
+.action-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.action-btn{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;font-size:13px;color:var(--text);cursor:pointer;transition:all .2s;text-decoration:none;display:block}
+.action-btn:hover{border-color:var(--purple)}
+.action-btn .icon{font-size:16px;margin-right:4px}
+.action-btn.primary{border-color:var(--purple);color:var(--purple)}
+.action-btn.secondary{border-color:var(--cyan);color:var(--cyan)}
+.section{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin:16px 0}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.section-title{font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px}
+.section-badge{font-size:10px;padding:3px 8px;border-radius:6px;background:var(--border);color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.section-badge.live{background:rgba(16,185,129,.15);color:var(--green)}
+.section-badge.sosovalue{background:rgba(6,182,212,.15);color:var(--cyan)}
+.btn-primary{width:100%;background:linear-gradient(135deg,var(--accent),#00a884);border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;color:#000;cursor:pointer;margin:12px 0;transition:opacity .2s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.asset-tabs{display:flex;gap:6px;margin:12px 0}
+.asset-tab{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .2s}
+.asset-tab.active{background:rgba(0,212,170,.1);border-color:var(--accent);color:var(--accent)}
+.asset-tab:hover:not(.active){border-color:var(--muted)}
+.error-box{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:16px;text-align:center;color:var(--red);font-size:14px;margin:12px 0;line-height:1.6}
+.error-box .hint{color:var(--muted);font-size:12px;margin-top:8px}
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.price-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px}
+.price-card .sym{font-size:12px;color:var(--muted);text-transform:uppercase}
+.price-card .val{font-size:20px;font-weight:700;margin:4px 0;font-family:monospace}
+.price-card .chg{font-size:12px;font-weight:600}
+.price-card .chg.up{color:var(--green)}
+.price-card .chg.down{color:var(--red)}
+.price-card .vol{font-size:11px;color:var(--muted);margin-top:4px}
+.etf-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.etf-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px}
+.etf-card .tick{font-size:14px;font-weight:700}
+.etf-card .name{font-size:11px;color:var(--muted);line-height:1.3}
+.etf-card .flow{font-size:16px;font-weight:700;margin-top:6px}
+.etf-card .flow.in{color:var(--green)}
+.etf-card .flow.out{color:var(--red)}
+.treasury-list{display:flex;flex-direction:column;gap:8px}
+.treasury-item{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center}
+.treasury-item .info{flex:1}
+.treasury-item .name{font-size:14px;font-weight:600}
+.treasury-item .tick{font-size:11px;color:var(--muted)}
+.treasury-item .btc{font-size:16px;font-weight:700;font-family:monospace;color:var(--accent)}
+.ssi-list{display:flex;flex-direction:column;gap:8px}
+.ssi-item{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center}
+.ssi-item .info{flex:1}
+.ssi-item .name{font-size:14px;font-weight:600}
+.ssi-item .chg{font-size:13px;font-weight:600;margin-top:2px}
+.ssi-item .chg.up{color:var(--green)}
+.ssi-item .chg.down{color:var(--red)}
+.ssi-item .price{font-size:11px;color:var(--muted)}
+.ssi-item .sig{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;background:var(--yellow);color:#000}
+.ssi-item .sig.buy{background:var(--green);color:#fff}
+.ssi-item .sig.sell{background:var(--red);color:#fff}
+.market-list{display:flex;flex-direction:column;gap:8px}
+.market-item{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center}
+.market-item .sym{font-size:14px;font-weight:700}
+.market-item .price{font-size:18px;font-weight:700;font-family:monospace}
+.market-item .chg{font-size:12px;font-weight:600}
+.market-item .chg.up{color:var(--green)}
+.market-item .chg.down{color:var(--red)}
+.market-item .source{font-size:10px;color:var(--muted)}
+.stock-list{display:flex;flex-direction:column;gap:8px}
+.stock-item{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px}
+.stock-item .tick{font-size:14px;font-weight:700;display:flex;justify-content:space-between}
+.stock-item .ex{font-size:11px;color:var(--muted)}
+.stock-item .price{font-size:20px;font-weight:700;font-family:monospace;margin:4px 0}
+.stock-item .chg{font-size:12px;font-weight:600}
+.stock-item .chg.up{color:var(--green)}
+.stock-item .chg.down{color:var(--red)}
+.stock-item .source{font-size:11px;color:var(--muted)}
+.trade-form{display:flex;flex-direction:column;gap:10px}
+.trade-form .field{display:flex;flex-direction:column;gap:4px}
+.trade-form label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.trade-form input,.trade-form select{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-size:14px;font-family:inherit}
+.trade-form input:focus,.trade-form select:focus{outline:none;border-color:var(--accent)}
+.trade-form .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.order-type{display:flex;gap:8px;margin:8px 0}
+.order-type-btn{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;font-size:13px;color:var(--muted);cursor:pointer}
+.order-type-btn.active{background:rgba(0,212,170,.1);border-color:var(--accent);color:var(--accent)}
+.chat-box{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;max-height:300px;overflow-y:auto;margin:12px 0}
+.chat-msg{margin:8px 0;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.5}
+.chat-msg.user{background:rgba(0,212,170,.1);color:var(--accent);margin-left:20%}
+.chat-msg.ai{background:var(--card);color:var(--text);margin-right:20%}
+.chat-msg .label{font-size:11px;font-weight:700;margin-bottom:2px;opacity:.7}
+.chat-input-row{display:flex;gap:8px;margin-top:8px}
+.chat-input-row input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-size:14px}
+.chat-input-row button{background:var(--accent);border:none;border-radius:10px;padding:12px 20px;color:#000;font-weight:700;cursor:pointer}
+.logs-panel{background:var(--card);border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow-y:auto;z-index:100}
+.logs-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--border);cursor:pointer}
+.logs-header h3{font-size:13px;color:var(--accent);display:flex;align-items:center;gap:6px}
+.logs-content{padding:8px 16px;font-size:11px;font-family:monospace;line-height:1.6;max-height:150px;overflow-y:auto}
+.log-entry{display:flex;gap:8px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.log-time{color:var(--muted);min-width:70px}
+.log-tag{padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+.log-tag.api{background:rgba(6,182,212,.15);color:var(--cyan)}
+.log-tag.etf{background:rgba(245,158,11,.15);color:var(--yellow)}
+.log-tag.ssi{background:rgba(139,92,246,.15);color:var(--purple)}
+.log-tag.wallet{background:rgba(16,185,129,.15);color:var(--green)}
+.log-tag.error{background:rgba(239,68,68,.15);color:var(--red)}
+.log-msg{flex:1;color:var(--text);word-break:break-all}
+.log-msg.ok{color:var(--green)}
+.log-msg.err{color:var(--red)}
+.log-msg.warn{color:var(--yellow)}
+.backtest-row{display:flex;gap:8px;margin:12px 0}
+.backtest-row select{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);font-size:13px}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.stat-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+.stat-card .label{font-size:11px;color:var(--muted);text-transform:uppercase}
+.stat-card .val{font-size:18px;font-weight:700;margin-top:4px}
+.news-list{display:flex;flex-direction:column;gap:8px}
+.news-item{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px}
+.news-item .title{font-size:13px;font-weight:600;line-height:1.4;margin-bottom:4px}
+.news-item .meta{font-size:11px;color:var(--muted);display:flex;gap:8px}
+.pulse-bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;margin:8px 0}
+.pulse-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.pulse-fill.low{background:var(--red)}
+.pulse-fill.mid{background:var(--yellow)}
+.pulse-fill.high{background:var(--green)}
+@keyframes flash{0%{background:rgba(0,212,170,.3)}100%{background:transparent}}
+.flash{animation:flash .5s ease}
+.loading{text-align:center;padding:20px;color:var(--muted);font-size:13px}
+.loading::after{content:"";display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin-left:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+.tabs{display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:4px;margin:12px 0}
+.tab{flex:1;padding:8px;text-align:center;font-size:12px;font-weight:600;color:var(--muted);border-radius:8px;cursor:pointer;border:none;background:transparent}
+.tab.active{background:var(--card);color:var(--text)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.open{opacity:1;pointer-events:auto}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px;max-width:400px;width:100%;max-height:90vh;overflow-y:auto}
+.modal h2{font-size:18px;margin-bottom:16px}
+.modal .step{display:flex;gap:12px;margin:12px 0;padding:12px;background:var(--bg);border-radius:10px}
+.modal .step-num{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.modal .step-body{flex:1}
+.modal .step-title{font-size:13px;font-weight:600}
+.modal .step-desc{font-size:12px;color:var(--muted);margin-top:2px}
+.setup-btn{width:100%;background:var(--accent);border:none;border-radius:10px;padding:12px;color:#000;font-weight:700;cursor:pointer;margin-top:8px}
+.close-btn{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer}
+@media(max-width:400px){.container{padding:12px}.header h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>⚡ ONCHAINEDGE</h1>
+    <div class="subtitle">SoSoValue · Groq AI · Live Data</div>
+    <div class="status-bar">
+      <span><span class="dot on"></span>SoValue</span>
+      <span><span class="dot on"></span>Groq AI</span>
+      <span><span class="dot on"></span>Live Data</span>
+      <span id="wsStatus"><span class="dot off"></span>WS: <span id="wsText">Off</span></span>
+    </div>
+  </div>
+
+  <div class="wallet-row">
+    <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">
+      <span>🔌</span>
+      <span id="walletAddr">Connect Wallet</span>
+    </button>
+    <button class="wallet-btn" onclick="openSetupModal()">
+      <span>🔑</span>
+      <span>Setup API Key</span>
+    </button>
+  </div>
+
+  <div class="action-btns">
+    <a href="https://testnet.sodex.com" target="_blank" class="action-btn primary">
+      <span class="icon">📈</span>Trade on SoDEX
+    </a>
+    <a href="https://sosovalue.com" target="_blank" class="action-btn secondary">
+      <span class="icon">🌐</span>SoSoValue
+    </a>
+  </div>
+
+  <!-- Prices Section -->
+  <div class="section" id="pricesSection">
+    <div class="section-header">
+      <div class="section-title">💰 Live Prices</div>
+      <span class="section-badge" id="priceSource">Loading...</span>
+    </div>
+    <div class="price-grid" id="priceGrid">
+      <div class="loading">Loading prices...</div>
+    </div>
+  </div>
+
+  <!-- ETF Flows -->
+  <div class="section" id="etfSection">
+    <div class="section-header">
+      <div class="section-title">💰 ETF Flow Tracker</div>
+      <span class="section-badge sosovalue">SOSOVALUE</span>
+    </div>
+    <div id="etfTotal" style="font-size:14px;color:var(--muted);margin-bottom:12px">Loading...</div>
+    <div class="etf-grid" id="etfGrid">
+      <div class="loading">Loading ETF data...</div>
+    </div>
+  </div>
+
+  <!-- SSI -->
+  <div class="section" id="ssiSection">
+    <div class="section-header">
+      <div class="section-title">📊 SoSoValue Sector Indices (SSI)</div>
+      <span class="section-badge sosovalue">SOSOVALUE</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">SoSoValue Sector Indices <span id="ssiCount" style="color:var(--green)">Loading...</span></div>
+    <div class="ssi-list" id="ssiList">
+      <div class="loading">Loading SSI data...</div>
+    </div>
+  </div>
+
+  <!-- Treasury -->
+  <div class="section" id="treasurySection">
+    <div class="section-header">
+      <div class="section-title">🏦 BTC Treasury</div>
+      <span class="section-badge sosovalue">SOSOVALUE</span>
+    </div>
+    <div class="treasury-list" id="treasuryList">
+      <div class="loading">Loading treasury data...</div>
+    </div>
+  </div>
+
+  <!-- Crypto Stocks -->
+  <div class="section" id="stocksSection">
+    <div class="section-header">
+      <div class="section-title">🏢 Crypto Stocks</div>
+      <span class="section-badge sosovalue">SOSOVALUE</span>
+    </div>
+    <div class="stock-list" id="stockList">
+      <div class="loading">Loading stock data...</div>
+    </div>
+  </div>
+
+  <!-- SoDEX Markets -->
+  <div class="section" id="marketsSection">
+    <div class="section-header">
+      <div class="section-title">📈 SoDEX Markets</div>
+      <span class="section-badge live">SODEX</span>
+    </div>
+    <div class="market-list" id="marketList">
+      <div class="loading">Loading SoDEX markets...</div>
+    </div>
+  </div>
+
+  <!-- AI Signal Engine -->
+  <div class="section" id="signalSection">
+    <div class="section-header">
+      <div class="section-title">🤖 AI Signal Engine</div>
+      <span class="section-badge">View SoSoValue</span>
+    </div>
+    <a href="#" style="display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--accent);text-decoration:none;margin-bottom:12px">Insights ↗</a>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Powered by SoSoValue Institutional Data + Groq Dual-Model AI</div>
+    <button class="btn-primary" id="loadSignalsBtn" onclick="loadSignals()">
+      <span id="signalBtnText">⚡ LOAD SIGNALS</span>
+    </button>
+    <div class="asset-tabs">
+      <button class="asset-tab active" data-asset="BTC" onclick="selectAsset('BTC')">BTC</button>
+      <button class="asset-tab" data-asset="ETH" onclick="selectAsset('ETH')">ETH</button>
+      <button class="asset-tab" data-asset="SOL" onclick="selectAsset('SOL')">SOL</button>
+      <button class="asset-tab" data-asset="BNB" onclick="selectAsset('BNB')">BNB</button>
+    </div>
+    <div id="signalResult"></div>
+  </div>
+
+  <!-- Signal History -->
+  <div class="section" id="historySection">
+    <div class="section-header">
+      <div class="section-title">📜 Signal History</div>
+    </div>
+    <div id="historyContent">
+      <div style="text-align:center;padding:20px;color:var(--muted);font-size:14px">No signal history available. Generate signals first!</div>
+    </div>
+  </div>
+
+  <!-- Backtest -->
+  <div class="section" id="backtestSection">
+    <div class="section-header">
+      <div class="section-title">🔮 "What If?" Simulator — Backtest Signal Accuracy</div>
+    </div>
+    <div class="backtest-row">
+      <select id="backtestSymbol">
+        <option value="BTC">BTC</option>
+        <option value="ETH">ETH</option>
+        <option value="SOL">SOL</option>
+        <option value="BNB">BNB</option>
+      </select>
+      <select id="backtestDays">
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+    </div>
+    <button class="btn-primary" onclick="runBacktest()">Run Backtest</button>
+    <div id="backtestResult"></div>
+  </div>
+
+  <!-- AI Analyst Chat -->
+  <div class="section" id="chatSection">
+    <div class="section-header">
+      <div class="section-title">💬 AI Analyst Chat</div>
+    </div>
+    <div class="chat-box" id="chatBox">
+      <div class="chat-msg ai">
+        <div class="label">AI</div>
+        Hi! I am your AI crypto analyst powered by SoSoValue data. Ask me anything about ETF flows, SSI sectors, or trading signals.
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" placeholder="Ask about BTC ETF flows, ETH signals..." onkeypress="if(event.key==='Enter')sendChat()">
+      <button onclick="sendChat()">Send</button>
+    </div>
+  </div>
+
+  <!-- News -->
+  <div class="section" id="newsSection">
+    <div class="section-header">
+      <div class="section-title">📰 Market News</div>
+    </div>
+    <div class="news-list" id="newsList">
+      <div class="loading">Loading news...</div>
+    </div>
+  </div>
+
+  <!-- Trade Panel -->
+  <div class="section" id="tradeSection">
+    <div class="section-header">
+      <div class="section-title">⚡ Execute SoDEX Order (Real EIP-712)</div>
+      <span class="section-badge">TESTNET</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+      Wallet: <span id="tradeWallet" style="color:var(--green)">Not connected</span>
+    </div>
+    <a href="https://testnet.sodex.com" target="_blank" style="display:inline-block;background:var(--bg);border:1px solid var(--purple);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--purple);text-decoration:none;margin-bottom:12px">Open SoDEX Terminal ↗</a>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Testnet trading with wallet-signed orders</div>
+    <div class="order-type">
+      <button class="order-type-btn active" onclick="setOrderType('limit')">Limit</button>
+      <button class="order-type-btn" onclick="setOrderType('market')">Market</button>
+    </div>
+    <div class="trade-form">
+      <div class="field">
+        <label>Symbol</label>
+        <select id="tradeSymbol">
+          <option value="BTC_USDC">BTC/USDC</option>
+          <option value="ETH_USDC">ETH/USDC</option>
+          <option value="SOL_USDC">SOL/USDC</option>
+          <option value="BNB_USDC">BNB/USDC</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Side</label>
+          <select id="tradeSide">
+            <option value="BUY">BUY</option>
+            <option value="SELL">SELL</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Quantity</label>
+          <input type="number" id="tradeQty" placeholder="0.001" step="0.001">
+        </div>
+      </div>
+      <div class="field" id="priceField">
+        <label>Price</label>
+        <input type="number" id="tradePrice" placeholder="Auto from WS">
+      </div>
+      <div class="field">
+        <label>API Key Name</label>
+        <input type="text" id="tradeKeyName" placeholder="my-key-01">
+      </div>
+      <div class="field">
+        <label>Account ID</label>
+        <input type="number" id="tradeAccountID" placeholder="12345">
+      </div>
+      <button class="btn-primary" onclick="prepareOrder()">Prepare Order</button>
+      <button class="btn-primary" onclick="submitOrder()" style="background:linear-gradient(135deg,var(--purple),#6d28d9)">Sign & Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Setup Modal -->
+<div class="modal-overlay" id="setupModal">
+  <div class="modal">
+    <h2>🔑 Setup API Key</h2>
+    <div id="setupSteps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Connect MetaMask</div>
+          <div class="step-desc">Connect your master wallet to ValueChain Testnet</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Get Account ID</div>
+          <div class="step-desc">Fetch your account ID from the blockchain</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Generate API Key</div>
+          <div class="step-desc">Create a new EVM keypair for trading</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Sign & Register</div>
+          <div class="step-desc">Sign the registration with MetaMask</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">Save Private Key</div>
+          <div class="step-desc">Store your API key securely</div>
+        </div>
+      </div>
+    </div>
+    <button class="setup-btn" onclick="startSetup()">Start Setup</button>
+    <button class="setup-btn" style="background:var(--border);color:var(--text);margin-top:8px" onclick="closeSetupModal()">Close</button>
+  </div>
+</div>
+
+<!-- Logs Panel -->
+<div class="logs-panel" id="logsPanel">
+  <div class="logs-header" onclick="toggleLogs()">
+    <h3>⚡ System Logs</h3>
+    <span id="logsToggle">▼</span>
+  </div>
+  <div class="logs-content" id="logsContent"></div>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+const API_BASE = window.location.origin;
+const SODEX_TESTNET_WS = 'wss://testnet-gw.sodex.dev/ws/spot';
+const SODEX_MAINNET_WS = 'wss://mainnet-gw.sodex.dev/ws/spot';
+
+// FIXED: ValueChain Testnet config for wallet_addEthereumChain
+const VALUECHAIN_TESTNET = {
+  chainId: '0x21d95',
+  chainName: 'ValueChain Testnet',
+  nativeCurrency: { name: 'SOSO', symbol: 'SOSO', decimals: 18 },
+  rpcUrls: ['https://testnet-v2.valuechain.xyz'],
+  blockExplorerUrls: ['https://test-scan.valuechain.xyz']
+};
+
+// ==================== STATE ====================
+let walletAddress = null;
+let wsConnection = null;
+let wsReconnectAttempts = 0;
+let wsMaxReconnects = 5;
+let currentAsset = 'BTC';
+let orderType = 'limit';
+let preparedOrder = null;
+let prices = {};
+let signalHistory = [];
+
+// ==================== LOGGING ====================
+function log(tag, msg, type = 'info') {
+  const time = new Date().toLocaleTimeString();
+  const content = document.getElementById('logsContent');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  const tagClass = tag.toLowerCase();
+  const msgClass = type === 'ok' ? 'ok' : type === 'error' ? 'err' : type === 'warn' ? 'warn' : '';
+  entry.innerHTML = `<span class="log-time">${time}</span><span class="log-tag ${tagClass}">${tag}</span><span class="log-msg ${msgClass}">${msg}</span>`;
+  content.appendChild(entry);
+  content.scrollTop = content.scrollHeight;
+  console.log(`[${tag}] ${msg}`);
+}
+
+function toggleLogs() {
+  const panel = document.getElementById('logsContent');
+  panel.classList.toggle('hidden');
+  document.getElementById('logsToggle').textContent = panel.classList.contains('hidden') ? '▲' : '▼';
+}
+
+// ==================== WALLET ====================
+async function connectWallet() {
+  if (!window.ethereum) {
+    log('Wallet', 'MetaMask not installed. Please install MetaMask.', 'error');
+    alert('MetaMask not detected. Please install MetaMask extension.');
+    return;
+  }
+
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    walletAddress = accounts[0];
+    document.getElementById('walletAddr').textContent = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
+    document.getElementById('tradeWallet').textContent = walletAddress.slice(0, 10) + '...';
+    log('Wallet', `Connected: ${walletAddress}`, 'ok');
+
+    // FIXED: Add ValueChain Testnet before switching
+    await addAndSwitchNetwork();
+
+    // Fetch account state after connection
+    fetchAccountState(walletAddress);
+  } catch (e) {
+    log('Wallet', `Connection failed: ${e.message}`, 'error');
+  }
+}
+
+// FIXED: Implement wallet_addEthereumChain before switch
+async function addAndSwitchNetwork() {
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: VALUECHAIN_TESTNET.chainId }]
+    });
+    log('Wallet', 'Switched to ValueChain Testnet', 'ok');
+  } catch (switchError) {
+    if (switchError.code === 4902) {
+      // Chain not added — add it
+      try {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [VALUECHAIN_TESTNET]
+        });
+        log('Wallet', 'Added ValueChain Testnet to wallet', 'ok');
+        // Try switching again
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: VALUECHAIN_TESTNET.chainId }]
+        });
+        log('Wallet', 'Switched to ValueChain Testnet', 'ok');
+      } catch (addError) {
+        log('Wallet', `Could not add ValueChain Testnet: ${addError.message}. Add manually from testnet.sodex.com`, 'warn');
+      }
+    } else {
+      log('Wallet', `Network switch failed: ${switchError.message}`, 'warn');
+    }
+  }
+}
+
+async function fetchAccountState(address) {
+  try {
+    // FIXED: Use GET method, not POST
+    const r = await fetch(`${API_BASE}/api/trade?action=account-state&address=${address}`);
+    const data = await r.json();
+    if (data.ok) {
+      log('API', `/api/trade?action=account-state → ${r.status}`, 'ok');
+    } else {
+      log('API', `/api/trade?action=account-state → ${data.error || r.status}`, 'warn');
+    }
+  } catch (e) {
+    log('API', `Account state fetch failed: ${e.message}`, 'error');
+  }
+}
+
+// ==================== WEBSOCKET ====================
+function connectWebSocket() {
+  if (wsConnection) return;
+
+  try {
+    wsConnection = new WebSocket(SODEX_TESTNET_WS);
+
+    wsConnection.onopen = () => {
+      wsReconnectAttempts = 0;
+      document.getElementById('wsStatus').innerHTML = '<span class="dot on"></span>WS: <span id="wsText">Live</span>';
+      log('WS', 'Connected to SoDEX testnet', 'ok');
+
+      wsConnection.send(JSON.stringify({
+        op: 'subscribe',
+        args: ['ticker:BTC_USDC', 'ticker:ETH_USDC', 'ticker:SOL_USDC', 'ticker:BNB_USDC']
+      }));
+    };
+
+    wsConnection.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.topic && msg.topic.startsWith('ticker:')) {
+          const ticker = msg.data;
+          const sym = msg.topic.replace('ticker:', '').replace('_USDC', '');
+          prices[sym] = {
+            price: parseFloat(ticker.lastPrice || ticker.lastPx),
+            change: parseFloat(ticker.changePct || ticker.changePct24h || 0),
+            source: 'ws'
+          };
+          updatePriceDisplay(sym, prices[sym]);
+        }
+      } catch (err) {
+        // Ignore non-JSON messages (pong, etc.)
+      }
+    };
+
+    wsConnection.onerror = (err) => {
+      log('WS', `Error: ${err.message || 'Connection error'}`, 'error');
+    };
+
+    wsConnection.onclose = () => {
+      document.getElementById('wsStatus').innerHTML = '<span class="dot off"></span>WS: <span id="wsText">Off</span>';
+      wsConnection = null;
+      if (wsReconnectAttempts < wsMaxReconnects) {
+        wsReconnectAttempts++;
+        const delay = 2000 * wsReconnectAttempts;
+        log('WS', `Reconnecting in ${delay}ms (attempt ${wsReconnectAttempts})`, 'warn');
+        setTimeout(connectWebSocket, delay);
+      } else {
+        log('WS', 'Max reconnects reached. Falling back to REST.', 'warn');
+        fetchPricesREST();
+      }
+    };
+  } catch (e) {
+    log('WS', `Connection failed: ${e.message}`, 'error');
+  }
+}
+
+// ==================== DATA FETCHING ====================
+async function fetchPricesREST() {
+  try {
+    const r = await fetch(`${API_BASE}/api/sodex?t=${Date.now()}`);
+    const data = await r.json();
+    if (data.ok && data.data) {
+      for (const item of data.data) {
+        const sym = item.symbol.replace('/USDC', '');
+        prices[sym] = {
+          price: parseFloat(item.lastPrice),
+          change: parseFloat(item.priceChange),
+          source: item.source
+        };
+      }
+      renderPrices();
+      document.getElementById('priceSource').textContent = data.source || 'Live';
+      log('API', `/api/sodex → ${r.status} (${data.pairCount} pairs)`, 'ok');
+    } else {
+      throw new Error(data.error || 'No price data');
+    }
+  } catch (e) {
+    log('API', `Price fetch failed: ${e.message}`, 'error');
+    document.getElementById('priceSource').textContent = 'Error';
+    document.getElementById('priceGrid').innerHTML = `
+      <div class="error-box" style="grid-column:1/-1">
+        Failed to load prices. ${e.message}<br>
+        <span class="hint">Check System Logs for details.</span>
+      </div>`;
+  }
+}
+
+async function fetchETF() {
+  try {
+    const r = await fetch(`${API_BASE}/api/soso?type=etf-flows&t=${Date.now()}`);
+    const data = await r.json();
+    if (data.ok && data.data) {
+      const { etfs, totalNet } = data.data;
+      document.getElementById('etfTotal').innerHTML = `Total Net Inflow Today <span style="color:var(--green);font-size:18px;font-weight:700">+$${totalNet.toLocaleString()}</span>`;
+      const grid = document.getElementById('etfGrid');
+      grid.innerHTML = etfs.map(e => `
+        <div class="etf-card">
+          <div class="tick">${e.ticker}</div>
+          <div class="name">${e.name}</div>
+          <div class="flow ${e.netInflow >= 0 ? 'in' : 'out'}">${e.netInflow >= 0 ? '+' : ''}$${(e.netInflow / 1e6).toFixed(2)}M</div>
+        </div>
+      `).join('');
+      log('ETF', `Loaded ${etfs.length} ETFs, total $${(totalNet/1e6).toFixed(1)}M`, 'ok');
+    } else {
+      throw new Error(data.error || 'ETF data unavailable');
+    }
+  } catch (e) {
+    log('ETF', `Fetch failed: ${e.message}`, 'error');
+    document.getElementById('etfGrid').innerHTML = `<div class="error-box" style="grid-column:1/-1">ETF data unavailable: ${e.message}</div>`;
+  }
+}
+
+async function fetchSSI() {
+  try {
+    const r = await fetch(`${API_BASE}/api/soso?type=sector&t=${Date.now()}`);
+    const data = await r.json();
+    if (data.ok && data.data && data.data.length > 0) {
+      document.getElementById('ssiCount').textContent = `${data.data.length}/${data.data.length} Live`;
+      const list = document.getElementById('ssiList');
+      list.innerHTML = data.data.map(s => `
+        <div class="ssi-item">
+          <div class="info">
+            <div class="name">${s.d}</div>
+            <div class="chg ${s.ch >= 0 ? 'up' : 'down'}">${s.ch >= 0 ? '+' : ''}${s.ch.toFixed(2)}%</div>
+            <div class="price">$${s.p.toFixed(2)}</div>
+          </div>
+          <span class="sig ${s.sig.toLowerCase()}">${s.sig}</span>
+        </div>
+      `).join('');
+      log('SSI', `Loaded ${data.data.length} indices`, 'ok');
+    } else {
+      throw new Error(data.error || 'SSI data unavailable');
+    }
+  } catch (e) {
+    log('SSI', `Fetch failed: ${e.message}`, 'error');
+    document.getElementById('ssiCount').textContent = '0/0 Error';
+    document.getElementById('ssiList').innerHTML = `<div class="error-box">SSI API error: ${e.message}</div>`;
+  }
+}
+
+async function fetchTreasury() {
+  try {
+    const r = await fetch(`${API_BASE}/api/soso?type=treasury&t=${Date.now()}`);
+    const data = await r.json();
+    if (data.ok && data.data) {
+      const list = document.getElementById('treasuryList');
+      list.innerHTML = data.data.map(t => `
+        <div class="treasury-item">
+          <div class="info">
+            <div class="name">${t.name}</div>
+            <div class="tick">${t.ticker}</div>
+          </div>
+          <div class="btc">${t.btc.toLocaleString()} BTC</div>
+        </div>
+      `).join('');
+      log('API', `Treasury: ${data.data.length} companies loaded`, 'ok');
+    } else {
+      throw new Error(data.error || 'Treasury data unavailable');
+    }
+  } catch (e) {
+    log('API', `Treasury fetch failed: ${e.message}`, 'error');
+    document.getElementById('treasuryList').innerHTML = `<div class="error-box">Treasury data unavailable: ${e.message}</div>`;
+  }
+}
+
+async function fetchStocks() {
+  try {
+    const r = await fetch(`${API_BASE}/api/soso?type=crypto-stocks&t=${Date.now()}`);
+    const data = await r.json();
+    if (data.ok && data.data) {
+      const list = document.getElementById('stockList');
+      list.innerHTML = data.data.map(s => `
+        <div class="stock-item">
+          <div class="tick">${s.tick}<span class="ex">${s.ex}</span></div>
+          <div class="price">$${s.p.toFixed(2)}</div>
+          <div class="chg ${s.ch >= 0 ? 'up' : 'down'}">${s.ch >= 0 ? '+' : ''}${s.ch.toFixed(2)}%</div>
+          <div class="source">${s.source}</div>
+        </div>
+      `).join('');
+      log('API', `Stocks: ${data.data.length} loaded from ${data.source}`, 'ok');
+    } else {
+      throw new Error(data.error || 'Stock data unavailable');
+    }
+  } catch (e) {
+    log('API', `Stocks fetch failed: ${e.message}`, 'error');
+    document.getElementById('stockList').innerHTML = `<div class="error-box">Stock data unavailable: ${e.message}</div>`;
+  }
+}
+
+async function fetchMarkets() {
+  try {
+    const r = await fetch(`${API_BASE}/api/sodex?t=${Date.now()}`);
+    const data = await r.json();
+    if (data.ok && data.data) {
+      const list = document.getElementById('marketList');
+      // Show all markets or top ones
+      const markets = data.data.slice(0, 8);
+      list.innerHTML = markets.map(m => `
+        <div class="market-item">
+          <div>
+            <div class="sym">${m.symbol}</div>
+            <div class="source">${m.source}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="price">$${parseFloat(m.lastPrice).toFixed(m.lastPrice > 100 ? 2 : 4)}</div>
+            <div class="chg ${parseFloat(m.priceChange) >= 0 ? 'up' : 'down'}">${parseFloat(m.priceChange) >= 0 ? '+' : ''}${m.priceChange}%</div>
+          </div>
+        </div>
+      `).join('');
+      log('API', `Markets: ${data.pairCount} pairs from ${data.source}`, 'ok');
+    } else {
+      throw new Error(data.error || 'Market data unavailable');
+    }
+  } catch (e) {
+    log('API', `Markets fetch failed: ${e.message}`, 'error');
+    document.getElementById('marketList').innerHTML = `<div class="error-box">Market data unavailable: ${e.message}</div>`;
+  }
+}
+
+async function fetchNews() {
+  try {
+    const r = await fetch(`${API_BASE}/api/news?t=${Date.now()}`);
+    const data = await r.json();
+    if (data.ok && data.articles) {
+      const list = document.getElementById('newsList');
+      list.innerHTML = data.articles.slice(0, 6).map(a => `
+        <div class="news-item">
+          <div class="title">${a.title}</div>
+          <div class="meta">
+            <span>${a.source}</span>
+            <span>${new Date(a.pubDate).toLocaleDateString()}</span>
+          </div>
+        </div>
+      `).join('');
+      log('API', `News: ${data.articles.length} articles from ${data.source}`, 'ok');
+    } else {
+      throw new Error(data.error || 'News unavailable');
+    }
+  } catch (e) {
+    log('API', `News fetch failed: ${e.message}`, 'error');
+    document.getElementById('newsList').innerHTML = `<div class="error-box">News unavailable: ${e.message}</div>`;
+  }
+}
+
+// ==================== RENDERING ====================
+function renderPrices() {
+  const grid = document.getElementById('priceGrid');
+  const syms = ['BTC', 'ETH', 'SOL', 'BNB'];
+  grid.innerHTML = syms.map(sym => {
+    const p = prices[sym];
+    if (!p) return `
+      <div class="price-card">
+        <div class="sym">${sym}</div>
+        <div class="val" style="color:var(--muted)">$--</div>
+        <div class="chg">--</div>
+      </div>
+    `;
+    return `
+      <div class="price-card">
+        <div class="sym">${sym}</div>
+        <div class="val">$${p.price.toLocaleString(undefined, {minimumFractionDigits: p.price < 100 ? 4 : 2, maximumFractionDigits: p.price < 100 ? 4 : 2})}</div>
+        <div class="chg ${p.change >= 0 ? 'up' : 'down'}">${p.change >= 0 ? '+' : ''}${p.change.toFixed(2)}%</div>
+        <div class="vol">${p.source || 'live'}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updatePriceDisplay(sym, data) {
+  renderPrices();
+  // Auto-fill trade price if matching symbol
+  const tradeSym = document.getElementById('tradeSymbol').value.replace('_USDC', '');
+  if (tradeSym === sym && document.getElementById('tradePrice')) {
+    document.getElementById('tradePrice').value = data.price.toFixed(data.price < 100 ? 4 : 2);
+  }
+}
+
+// ==================== SIGNALS ====================
+function selectAsset(asset) {
+  currentAsset = asset;
+  document.querySelectorAll('.asset-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.asset-tab[data-asset="${asset}"]`).classList.add('active');
+}
+
+async function loadSignals() {
+  const btn = document.getElementById('loadSignalsBtn');
+  const btnText = document.getElementById('signalBtnText');
+  const result = document.getElementById('signalResult');
+
+  btn.disabled = true;
+  btnText.textContent = '⏳ Generating...';
+  result.innerHTML = '<div class="loading">Generating AI signal with confidence evolution...</div>';
+
+  try {
+    // Build prompt with live data
+    const p = prices[currentAsset];
+    const priceStr = p ? `$${p.price.toFixed(2)} (${p.change >= 0 ? '+' : ''}${p.change.toFixed(2)}%)` : 'unavailable';
+
+    const r = await fetch(`${API_BASE}/api/signal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: `Generate a ${currentAsset} trading signal. Current price: ${priceStr}. Analyze market conditions.`,
+        mode: 'signal',
+        asset: currentAsset,
+        price: p?.price || 0
+      })
+    });
+
+    const data = await r.json();
+
+    if (data.error) {
+      result.innerHTML = `<div class="error-box">${data.error}</div>`;
+      log('Signal', `Failed: ${data.error}`, 'error');
+      return;
+    }
+
+    const sig = JSON.parse(data.result);
+    signalHistory.push(sig);
+    renderSignal(sig);
+    renderHistory();
+    log('Signal', `${sig.signal} ${currentAsset} @ ${sig.confidence}% confidence`, 'ok');
+  } catch (e) {
+    result.innerHTML = `<div class="error-box">Failed: ${e.message}</div>`;
+    log('Signal', `Error: ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = '⚡ LOAD SIGNALS';
+  }
+}
+
+function renderSignal(sig) {
+  const result = document.getElementById('signalResult');
+  const color = sig.signal === 'BUY' ? 'var(--green)' : sig.signal === 'SELL' ? 'var(--red)' : 'var(--yellow)';
+  result.innerHTML = `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-size:24px;font-weight:800;color:${color}">${sig.signal}</span>
+        <span style="font-size:14px;color:var(--muted)">${sig.confidence}% confidence</span>
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">${sig.summary}</div>
+      <div style="font-size:12px;line-height:1.6">${sig.reasoning}</div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        ${sig.factors.map(f => `<span style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11px">${f}</span>`).join('')}
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+        Risk: ${sig.risk} | Timeframe: ${sig.timeframe}
+        ${sig.stop_loss ? `| Stop: ${sig.stop_loss}` : ''}
+        ${sig.take_profit ? `| Target: ${sig.take_profit}` : ''}
+      </div>
+      ${sig.riskCheck ? `
+        <div style="margin-top:12px;padding:10px;background:rgba(245,158,11,.1);border-radius:8px;font-size:12px">
+          <strong>Risk Check:</strong> ${sig.riskCheck.verdict} (score: ${sig.riskCheck.score})
+          ${sig.riskCheck.warnings.length ? '<br>Warnings: ' + sig.riskCheck.warnings.join(', ') : ''}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderHistory() {
+  const content = document.getElementById('historyContent');
+  if (signalHistory.length === 0) {
+    content.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:14px">No signal history available. Generate signals first!</div>';
+    return;
+  }
+  content.innerHTML = signalHistory.slice(-10).reverse().map((s, i) => `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;margin:6px 0;font-size:12px">
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-weight:700">${s.signal}</span>
+        <span style="color:var(--muted)">${s.confidence}%</span>
+      </div>
+      <div style="color:var(--muted);font-size:11px">${new Date().toLocaleTimeString()}</div>
+    </div>
+  `).join('');
+}
+
+// ==================== BACKTEST ====================
+async function runBacktest() {
+  const symbol = document.getElementById('backtestSymbol').value;
+  const days = document.getElementById('backtestDays').value;
+  const result = document.getElementById('backtestResult');
+
+  result.innerHTML = '<div class="loading">Running backtest simulation...</div>';
+
+  try {
+    // FIXED: Use local simulation endpoint instead of non-existent external API
+    const r = await fetch(`${API_BASE}/api/history?action=backtest&symbol=${symbol}&days=${days}`);
+    const data = await r.json();
+
+    if (!data.ok || data.error) {
+      result.innerHTML = `<div class="error-box">⚠️ ${data.error || 'No history records parsed.'}</div>`;
+      log('Backtest', data.error || 'No history', 'warn');
+      return;
+    }
+
+    const res = data.result;
+    result.innerHTML = `
+      <div class="stats-grid" style="margin-top:16px">
+        <div class="stat-card">
+          <div class="label">Hit Rate</div>
+          <div class="val" style="color:var(--green)">${res.hitRate}%</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Max Drawdown</div>
+          <div class="val" style="color:var(--red)">${res.maxDrawdown}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">False Signals</div>
+          <div class="val">${res.falseSignals}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Avg Return</div>
+          <div class="val" style="color:var(--green)">${res.avgReturn}</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+        ${res.totalSignals} signals over ${res.period}
+      </div>
+    `;
+    log('Backtest', `${res.hitRate}% hit rate, ${res.totalSignals} signals`, 'ok');
+  } catch (e) {
+    result.innerHTML = `<div class="error-box">Backtest failed: ${e.message}</div>`;
+    log('Backtest', `Error: ${e.message}`, 'error');
+  }
+}
+
+// ==================== CHAT ====================
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const box = document.getElementById('chatBox');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  // Add user message
+  const userDiv = document.createElement('div');
+  userDiv.className = 'chat-msg user';
+  userDiv.innerHTML = `<div class="label">You</div>${msg}`;
+  box.appendChild(userDiv);
+  input.value = '';
+  box.scrollTop = box.scrollHeight;
+
+  // Show typing
+  const aiDiv = document.createElement('div');
+  aiDiv.className = 'chat-msg ai';
+  aiDiv.innerHTML = `<div class="label">AI</div><span class="loading" style="padding:0"></span>`;
+  box.appendChild(aiDiv);
+  box.scrollTop = box.scrollHeight;
+
+  try {
+    const r = await fetch(`${API_BASE}/api/signal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: msg, mode: 'chat' })
+    });
+    const data = await r.json();
+
+    aiDiv.innerHTML = `<div class="label">AI</div>${data.result || data.error || 'No response'}`;
+    if (data.prices) {
+      const priceNote = document.createElement('div');
+      priceNote.style.cssText = 'margin-top:8px;font-size:11px;color:var(--muted)';
+      priceNote.textContent = `✅ Analysis completed via dynamic matrix parsing • ${new Date().toLocaleTimeString()}`;
+      aiDiv.appendChild(priceNote);
+    }
+    log('Chat', `User: "${msg.slice(0,30)}..." → AI responded`, 'ok');
+  } catch (e) {
+    aiDiv.innerHTML = `<div class="label">AI</div>No live price data available for signal generation. Price sources may be rate-limited.`;
+    log('Chat', `Error: ${e.message}`, 'error');
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+// ==================== TRADING ====================
+function setOrderType(type) {
+  orderType = type;
+  document.querySelectorAll('.order-type-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('priceField').style.display = type === 'market' ? 'none' : 'flex';
+}
+
+async function prepareOrder() {
+  const symbol = document.getElementById('tradeSymbol').value;
+  const side = document.getElementById('tradeSide').value;
+  const price = document.getElementById('tradePrice').value;
+  const qty = document.getElementById('tradeQty').value;
+  const keyName = document.getElementById('tradeKeyName').value;
+  const accountID = document.getElementById('tradeAccountID').value;
+
+  if (!qty || !keyName || !accountID) {
+    alert('Please fill all required fields');
+    return;
+  }
+
+  try {
+    const r = await fetch(`${API_BASE}/api/trade?action=prepare-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbol, side, price: price || '0', quantity: qty,
+        nonce: Date.now(), keyName, accountID
+      })
+    });
+    const data = await r.json();
+    if (data.ok) {
+      preparedOrder = data.payload;
+      log('Trade', 'Order prepared successfully', 'ok');
+      alert('Order prepared! Click "Sign & Submit" to execute.');
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (e) {
+    log('Trade', `Prepare failed: ${e.message}`, 'error');
+    alert('Failed to prepare order: ' + e.message);
+  }
+}
+
+async function submitOrder() {
+  if (!preparedOrder) {
+    alert('Please prepare an order first');
+    return;
+  }
+  if (!walletAddress) {
+    alert('Please connect wallet first');
+    return;
+  }
+
+  try {
+    // Sign EIP-712 typed data
+    const signature = await window.ethereum.request({
+      method: 'eth_signTypedData_v4',
+      params: [walletAddress, JSON.stringify(preparedOrder)]
+    });
+
+    const r = await fetch(`${API_BASE}/api/trade?action=submit-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        params: preparedOrder.message,
+        signature: signature
+      })
+    });
+    const data = await r.json();
+    if (data.ok) {
+      log('Trade', 'Order submitted successfully!', 'ok');
+      alert('Order submitted to SoDEX testnet!');
+    } else {
+      throw new Error(data.error || 'Submission failed');
+    }
+  } catch (e) {
+    log('Trade', `Submit failed: ${e.message}`, 'error');
+    alert('Failed to submit: ' + e.message);
+  }
+}
+
+// ==================== SETUP MODAL ====================
+function openSetupModal() {
+  document.getElementById('setupModal').classList.add('open');
+}
+function closeSetupModal() {
+  document.getElementById('setupModal').classList.remove('open');
+}
+async function startSetup() {
+  if (!walletAddress) {
+    alert('Please connect wallet first');
+    return;
+  }
+  try {
+    const r = await fetch(`${API_BASE}/api/setup?action=guide`);
+    const data = await r.json();
+    log('Setup', 'Guide loaded', 'ok');
+    alert('Setup wizard started! Follow the steps in the UI.');
+  } catch (e) {
+    log('Setup', `Error: ${e.message}`, 'error');
+  }
+}
+
+// ==================== INIT ====================
+async function init() {
+  log('System', 'OnchainEdge v2.0 initializing...', 'ok');
+
+  // Fetch all data in parallel
+  await Promise.allSettled([
+    fetchPricesREST(),
+    fetchETF(),
+    fetchSSI(),
+    fetchTreasury(),
+    fetchStocks(),
+    fetchMarkets(),
+    fetchNews()
+  ]);
+
+  // Connect WebSocket for real-time updates
+  connectWebSocket();
+
+  // Listen for wallet events
+  if (window.ethereum) {
+    window.ethereum.on('accountsChanged', (accounts) => {
+      if (accounts.length > 0) {
+        walletAddress = accounts[0];
+        document.getElementById('walletAddr').textContent = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
+        log('Wallet', `Account changed: ${walletAddress}`, 'ok');
+      } else {
+        walletAddress = null;
+        document.getElementById('walletAddr').textContent = 'Connect Wallet';
+        log('Wallet', 'Disconnected', 'warn');
+      }
+    });
+  }
+
+  log('System', 'Initialization complete', 'ok');
+}
+
+// Start
+init();
+</script>
+</body>
+</html>
