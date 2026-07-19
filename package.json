@@ -6,6 +6,7 @@
   "main": "index.html",
   "scripts": {
     "dev": "vercel dev",
+    "build": "node build.js",
     "lint": "eslint api/ --ext .js",
     "lint:fix": "eslint api/ --ext .js --fix",
     "test": "jest",
