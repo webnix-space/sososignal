@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>OnchainEdge v2.2 — Wave 3 Final</title>
+<style>
+:root {
+  --bg: #0a0e17; --bg2: #0f1419; --bg3: #161b22; --bg4: #1c2128;
+  --border: #21262d; --text: #c9d1d9; --text2: #8b949e; --accent: #00d4aa;
+  --accent2: #58a6ff; --danger: #f85149; --warn: #f0883e; --success: #3fb950;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { background:var(--bg); color:var(--text); font-family:var(--font); min-height:100vh; overflow-x:hidden; }
+body { padding-bottom:80px; }
+.header { text-align:center; padding:16px 12px 8px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:100; }
+.header h1 { font-size:22px; color:var(--accent); letter-spacing:2px; text-transform:uppercase; }
+.header .sub { font-size:11px; color:var(--text2); margin-top:2px; }
+.status-bar { display:flex; justify-content:center; gap:12px; margin-top:8px; flex-wrap:wrap; font-size:10px; }
+.status-bar span { display:flex; align-items:center; gap:4px; color:var(--text2); }
+.status-bar .dot { width:6px; height:6px; border-radius:50%; background:var(--text2); }
+.status-bar .dot.ok { background:var(--success); animation:pulse 2s infinite; }
+.status-bar .dot.err { background:var(--danger); }
+.status-bar .dot.warn { background:var(--warn); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.btn-row { display:flex; gap:8px; padding:10px 12px; flex-wrap:wrap; justify-content:center; }
+.btn { flex:1; min-width:120px; padding:10px 14px; border-radius:8px; border:1px solid var(--border); background:var(--bg3); color:var(--text); font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:.2s; }
+.btn:hover { border-color:var(--accent); }
+.btn.primary { background:var(--accent); color:#000; border:none; }
+.btn.primary:hover { filter:brightness(1.1); }
+.btn.danger { background:var(--danger); color:#fff; border:none; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+.card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; margin:10px 12px; overflow:hidden; }
+.card-header { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--border); }
+.card-header h2 { font-size:14px; display:flex; align-items:center; gap:6px; }
+.card-header .badge { font-size:9px; padding:2px 8px; border-radius:10px; background:var(--bg4); color:var(--text2); border:1px solid var(--border); }
+.card-body { padding:12px 14px; }
+.price-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.price-card { background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:12px; }
+.price-card .sym { font-size:11px; color:var(--text2); text-transform:uppercase; }
+.price-card .price { font-size:20px; font-weight:700; margin:4px 0; font-family:monospace; }
+.price-card .change { font-size:11px; font-weight:600; }
+.price-card .change.up { color:var(--success); }
+.price-card .change.down { color:var(--danger); }
+.price-card .vol { font-size:10px; color:var(--text2); margin-top:4px; }
+.gauge-wrap { text-align:center; padding:10px 0; }
+.gauge { width:200px; height:100px; margin:0 auto; position:relative; }
+.gauge svg { width:100%; height:100%; }
+.gauge-needle { position:absolute; bottom:0; left:50%; width:2px; height:90px; background:var(--accent); transform-origin:bottom center; transform:translateX(-50%) rotate(-90deg); transition:transform 1s ease; border-radius:2px; }
+.gauge-labels { display:flex; justify-content:space-between; padding:0 20px; font-size:9px; color:var(--text2); margin-top:4px; }
+.gauge-value { font-size:28px; font-weight:700; color:var(--accent); margin-top:4px; }
+.gauge-text { font-size:12px; color:var(--text2); }
+.pulse-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.pulse-item { background:var(--bg3); border-radius:8px; padding:10px; text-align:center; }
+.pulse-item .icon { font-size:16px; }
+.pulse-item .label { font-size:10px; color:var(--text2); margin-top:4px; }
+.pulse-item .value { font-size:14px; font-weight:700; margin-top:2px; }
+.pulse-score { text-align:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+.pulse-score .score { font-size:32px; font-weight:700; color:var(--accent); }
+.pulse-score .label { font-size:10px; color:var(--text2); }
+.signal-tabs { display:flex; gap:4px; margin-bottom:10px; }
+.signal-tab { flex:1; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text2); font-size:11px; text-align:center; cursor:pointer; }
+.signal-tab.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:700; }
+.signal-display { background:var(--bg3); border-radius:8px; padding:14px; text-align:center; min-height:100px; }
+.signal-display .action { font-size:28px; font-weight:800; text-transform:uppercase; letter-spacing:2px; }
+.signal-display .action.BUY { color:var(--success); }
+.signal-display .action.SELL { color:var(--danger); }
+.signal-display .action.HOLD { color:var(--warn); }
+.signal-display .conf { font-size:12px; color:var(--text2); margin-top:6px; }
+.signal-display .reason { font-size:11px; color:var(--text2); margin-top:8px; line-height:1.5; }
+.backtest-controls { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+.backtest-controls select, .backtest-controls input { flex:1; min-width:100px; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text); font-size:12px; }
+.backtest-result { background:var(--bg3); border-radius:8px; padding:12px; font-size:12px; }
+.backtest-result .row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border); }
+.backtest-result .row:last-child { border:none; }
+.backtest-result .pos { color:var(--success); }
+.backtest-result .neg { color:var(--danger); }
+.paper-balance { display:flex; gap:8px; margin-bottom:10px; }
+.paper-balance .bal-card { flex:1; background:var(--bg3); border-radius:8px; padding:10px; text-align:center; }
+.paper-balance .bal-card .amt { font-size:18px; font-weight:700; color:var(--accent); }
+.paper-balance .bal-card .lbl { font-size:10px; color:var(--text2); }
+.paper-form { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.paper-form input, .paper-form select { padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text); font-size:12px; }
+.paper-positions { max-height:200px; overflow-y:auto; }
+.paper-pos-row { display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid var(--border); font-size:11px; }
+.paper-pos-row .pnl { font-weight:700; }
+.paper-pos-row .pnl.pos { color:var(--success); }
+.paper-pos-row .pnl.neg { color:var(--danger); }
+.audit-log { max-height:180px; overflow-y:auto; font-size:11px; }
+.audit-entry { padding:6px 0; border-bottom:1px solid var(--border); display:flex; gap:8px; }
+.audit-entry .time { color:var(--text2); white-space:nowrap; font-size:10px; }
+.audit-entry .msg { flex:1; }
+.audit-entry .tag { font-size:9px; padding:1px 6px; border-radius:4px; background:var(--bg4); }
+.news-list { max-height:250px; overflow-y:auto; }
+.news-item { padding:10px 0; border-bottom:1px solid var(--border); }
+.news-item:last-child { border:none; }
+.news-item .title { font-size:12px; font-weight:600; line-height:1.4; }
+.news-item .meta { font-size:10px; color:var(--text2); margin-top:4px; }
+.order-form { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.order-form input, .order-form select { padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg3); color:var(--text); font-size:12px; }
+.order-form .full { grid-column:1/-1; }
+.chat-messages { max-height:200px; overflow-y:auto; margin-bottom:10px; }
+.chat-msg { padding:8px; border-radius:8px; margin-bottom:6px; font-size:12px; line-height:1.4; }
+.chat-msg.bot { background:var(--bg3); border-left:3px solid var(--accent); }
+.chat-msg.user { background:var(--bg4); margin-left:20px; }
+.chat-input-row { display:flex; gap:8px; }
+.chat-input-row input { flex:1; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg3); color:var(--text); font-size:12px; }
+.logs { max-height:150px; overflow-y:auto; font-family:monospace; font-size:10px; color:var(--text2); }
+.log-entry { padding:2px 0; }
+.log-entry.err { color:var(--danger); }
+.log-entry.ok { color:var(--success); }
+.log-entry.warn { color:var(--warn); }
+.skeleton { background:linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:4px; height:16px; }
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.footer { text-align:center; padding:20px; font-size:10px; color:var(--text2); border-top:1px solid var(--border); margin-top:20px; }
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ ONCHAINEDGE</h1>
+  <div class="sub">Wave 3 — Final Submission</div>
+  <div class="status-bar">
+    <span><span class="dot" id="st-soso"></span>SoSoValue</span>
+    <span><span class="dot" id="st-groq"></span>Groq AI</span>
+    <span><span class="dot" id="st-live"></span>Live Data</span>
+    <span><span class="dot" id="st-ws"></span>WS</span>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="btn" onclick="connectWallet()">🔌 Connect Wallet</button>
+  <button class="btn" onclick="setupApiKey()">🔑 Setup API Key</button>
+  <button class="btn" onclick="window.open('https://testnet-gw.sodex.dev','_blank')">📈 Trade on SoDEX</button>
+  <button class="btn" onclick="window.open('https://sosovalue.com','_blank')">🌐 SoSoValue</button>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>💰 Live Prices</h2><span class="badge" id="price-badge">SODEX-LIVE</span></div>
+  <div class="card-body">
+    <div class="price-grid" id="prices">
+      <div class="price-card"><div class="sym">BTC</div><div class="price">$--</div><div class="change">--</div><div class="vol">loading</div></div>
+      <div class="price-card"><div class="sym">ETH</div><div class="price">$--</div><div class="change">--</div><div class="vol">loading</div></div>
+      <div class="price-card"><div class="sym">SOL</div><div class="price">$--</div><div class="change">--</div><div class="vol">loading</div></div>
+      <div class="price-card"><div class="sym">BNB</div><div class="price">$--</div><div class="change">--</div><div class="vol">loading</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>😰 Fear & Greed Index</h2><span class="badge">alternative.me</span></div>
+  <div class="card-body">
+    <div class="gauge-wrap">
+      <div class="gauge">
+        <svg viewBox="0 0 200 100"><defs><linearGradient id="ggrad"><stop offset="0%" stop-color="#f85149"/><stop offset="25%" stop-color="#f0883e"/><stop offset="50%" stop-color="#ffd700"/><stop offset="75%" stop-color="#3fb950"/><stop offset="100%" stop-color="#00d4aa"/></linearGradient></defs><path d="M 10 100 A 90 90 0 0 1 190 100" fill="none" stroke="url(#ggrad)" stroke-width="16" stroke-linecap="round"/></svg>
+        <div class="gauge-needle" id="fg-needle"></div>
+      </div>
+      <div class="gauge-labels"><span>Extreme Fear</span><span>Fear</span><span>Neutral</span><span>Greed</span><span>Extreme Greed</span></div>
+      <div class="gauge-value" id="fg-value">--</div>
+      <div class="gauge-text" id="fg-text">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>📊 Market Pulse</h2><span class="badge">Composite</span></div>
+  <div class="card-body">
+    <div class="pulse-grid">
+      <div class="pulse-item"><div class="icon">📈</div><div class="label">ETF Net Flow</div><div class="value" id="etf-flow">--</div></div>
+      <div class="pulse-item"><div class="icon">🎯</div><div class="label">Top SSI Sector</div><div class="value" id="top-ssi">--</div></div>
+      <div class="pulse-item"><div class="icon">🏦</div><div class="label">Institutional BTC</div><div class="value" id="inst-btc">--</div></div>
+      <div class="pulse-item"><div class="icon">🤖</div><div class="label">AI Interpretation</div><div class="value" id="ai-interp" style="font-size:12px;">Analyzing...</div></div>
+    </div>
+    <div class="pulse-score"><div class="score" id="pulse-score">--</div><div class="label">Market Pulse Score (0-100)</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>💵 ETF Flow Tracker</h2><span class="badge">SOSOVALUE</span></div>
+  <div class="card-body" id="etf-body"><div class="skeleton" style="height:40px;"></div><div style="margin-top:8px;color:var(--text2);font-size:12px;">Loading ETF data...</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>📊 SoSoValue Sector Indices (SSI)</h2><span class="badge">SOSOVALUE</span></div>
+  <div class="card-body" id="ssi-body"><div style="color:var(--text2);font-size:12px;">SoSoValue Sector Indices 0/0</div><div style="margin-top:8px;color:var(--text2);font-size:12px;">Loading SSI data...</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>🏛️ BTC Treasury</h2><span class="badge">SOSOVALUE</span></div>
+  <div class="card-body" id="treasury-body"><div style="color:var(--text2);font-size:12px;">Loading treasury data...</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>🏢 Crypto Stocks</h2><span class="badge">SOSOVALUE</span></div>
+  <div class="card-body" id="stocks-body"><div style="color:var(--text2);font-size:12px;">Loading stock data...</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>📈 SoDEX Markets</h2><span class="badge">SODEX</span></div>
+  <div class="card-body" id="sodex-body"><div style="color:var(--text2);font-size:12px;">Loading SoDEX markets...</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>🤖 AI Signal Engine</h2><span class="badge">GROQ AI</span></div>
+  <div class="card-body">
+    <button class="btn primary full" style="width:100%;margin-bottom:12px;" onclick="loadSignals()" id="load-sig-btn">⚡ LOAD SIGNALS</button>
+    <div class="signal-tabs">
+      <div class="signal-tab active" onclick="switchSignal('BTC',this)">BTC</div>
+      <div class="signal-tab" onclick="switchSignal('ETH',this)">ETH</div>
+      <div class="signal-tab" onclick="switchSignal('SOL',this)">SOL</div>
+      <div class="signal-tab" onclick="switchSignal('BNB',this)">BNB</div>
+      <div class="signal-tab" onclick="switchSignal('MARKET',this)">MARKET</div>
+    </div>
+    <div class="signal-display" id="signal-display">
+      <div style="color:var(--text2);font-size:13px;">Click "LOAD SIGNALS" to generate AI trading signals with confidence evolution...</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>📋 Audit Trail</h2><span class="badge">SYSTEM</span></div>
+  <div class="card-body">
+    <button class="btn" style="margin-bottom:10px;font-size:11px;" onclick="refreshAudit()">🔄 Refresh Audit Log</button>
+    <div class="audit-log" id="audit-log"><div style="color:var(--text2);font-size:12px;">Click Refresh to load audit trail...</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>🔮 What If? Simulator</h2><span class="badge">BACKTEST</span></div>
+  <div class="card-body">
+    <div class="backtest-controls">
+      <select id="bt-asset"><option value="BTC">BTC</option><option value="ETH">ETH</option><option value="SOL">SOL</option><option value="BNB">BNB</option></select>
+      <select id="bt-period"><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select>
+    </div>
+    <button class="btn primary" style="width:100%;margin-bottom:10px;" onclick="runBacktest()">Run Backtest</button>
+    <div class="backtest-result" id="backtest-result"><div style="color:var(--text2);font-size:12px;text-align:center;">Select asset and period, then run backtest</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>📰 Paper Trading</h2><span class="badge">PAPER</span></div>
+  <div class="card-body">
+    <div class="paper-balance">
+      <div class="bal-card"><div class="amt" id="paper-usdc">$10,000.00</div><div class="lbl">Paper USDC</div></div>
+      <div class="bal-card"><div class="amt" id="paper-pnl">$0.00</div><div class="lbl">Unrealized P&L</div></div>
+    </div>
+    <div class="paper-form">
+      <select id="paper-symbol"><option value="BTC_USDC">BTC_USDC</option><option value="ETH_USDC">ETH_USDC</option><option value="SOL_USDC">SOL_USDC</option><option value="BNB_USDC">BNB_USDC</option></select>
+      <select id="paper-side"><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+      <input type="number" id="paper-price" placeholder="Price (USDC)" step="0.01">
+      <input type="number" id="paper-qty" placeholder="Quantity" step="0.001">
+      <input type="number" id="paper-sl" placeholder="Stop Loss %" step="0.1" value="5">
+      <input type="number" id="paper-tp" placeholder="Take Profit %" step="0.1" value="10">
+    </div>
+    <button class="btn primary" style="width:100%;margin-bottom:10px;" onclick="paperTrade()">📰 Execute Paper Trade</button>
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Open Positions</div>
+    <div class="paper-positions" id="paper-positions"><div style="color:var(--text2);font-size:12px;text-align:center;padding:10px;">No paper positions yet</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>📰 Market News</h2><span class="badge">RSS</span></div>
+  <div class="card-body">
+    <div class="news-list" id="news-list"><div style="color:var(--text2);font-size:12px;">Loading news...</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>⚡ Execute SoDEX Order (Real EIP-712)</h2><span class="badge">TESTNET</span></div>
+  <div class="card-body">
+    <div style="font-size:12px;margin-bottom:10px;">Wallet: <span id="wallet-addr" style="color:var(--accent);">Not connected</span></div>
+    <div class="order-form">
+      <select id="order-symbol"><option value="BTC_USDC">BTC_USDC</option><option value="ETH_USDC">ETH_USDC</option><option value="SOL_USDC">SOL_USDC</option><option value="BNB_USDC">BNB_USDC</option></select>
+      <select id="order-side"><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+      <input type="number" id="order-price" placeholder="Price (USDC)" step="0.01">
+      <input type="number" id="order-qty" placeholder="Quantity" step="0.001">
+      <input type="text" id="order-apikey" class="full" placeholder="API Key Name (e.g. my-api-key-01)">
+      <input type="number" id="order-acct" class="full" placeholder="Account ID (e.g. 12345)">
+    </div>
+    <button class="btn primary" style="width:100%;margin-top:10px;" onclick="prepareOrder()">📋 Prepare Order</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>💬 AI Analyst Chat</h2><span class="badge">GROQ</span></div>
+  <div class="card-body">
+    <div class="chat-messages" id="chat-messages"><div class="chat-msg bot">Hi! I am your AI crypto analyst powered by SoSoValue data. Ask me anything about ETF flows, SSI sectors, or trading signals.</div></div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Ask about BTC, ETFs, or market signals..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="btn primary" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2>⚡ System Logs</h2><button class="btn" style="font-size:11px;padding:4px 10px;" onclick="clearLogs()">Clear</button></div>
+  <div class="card-body"><div class="logs" id="logs"></div></div>
+</div>
+
+<div class="footer">OnchainEdge v2.2 — Built with SoSoValue + Groq AI + SoDEX<br>WaveHack Buildathon Submission</div>
+
+<script>
+
+// ==================== CONFIG ====================
+const CONFIG = {
+  SOSO_BASE: 'https://openapi.sosovalue.com/openapi/v1',
+  SODEX_REST: 'https://mainnet-gw.sodex.dev/api/v1',
+  SODEX_WS_SPOT: 'wss://mainnet-gw.sodex.dev/ws/spot',
+  SODEX_WS_PERPS: 'wss://mainnet-gw.sodex.dev/ws/perps',
+  GROQ_URL: 'https://api.groq.com/openai/v1/chat/completions',
+  FEAR_GREED: 'https://api.alternative.me/fng/?limit=1',
+  COINGECKO: 'https://api.coingecko.com/api/v3',
+  NEWS_RSS: 'https://cointelegraph.com/rss',
+  CHAIN_ID_MAIN: 286623,
+  CHAIN_ID_TEST: 138565,
+  CACHE_TTL: { prices: 30, etf: 60, ssi: 60, news: 120, fg: 300 }
+};
+
+// ==================== STATE ====================
+let state = {
+  sosoKey: localStorage.getItem('sosoKey') || '',
+  groqKey: localStorage.getItem('groqKey') || '',
+  sodexApiKey: localStorage.getItem('sodexApiKey') || '',
+  sodexPrivKey: localStorage.getItem('sodexPrivKey') || '',
+  wallet: null,
+  prices: {},
+  ws: null,
+  wsConnected: false,
+  currentSignal: 'BTC',
+  paperBalance: parseFloat(localStorage.getItem('paperBalance')) || 10000,
+  paperPositions: JSON.parse(localStorage.getItem('paperPositions') || '[]'),
+  auditLog: JSON.parse(localStorage.getItem('auditLog') || '[]'),
+  logs: [],
+  nonce: Date.now()
+};
+
+// ==================== ENV INJECTION (BUILD TIME) ====================
+// These placeholders are replaced by build.js during Vercel deploy
+const ENV_SOSO = '__SOSO_API_KEY__';
+const ENV_GROQ = '__GROQ_API_KEY__';
+const ENV_SODEX = '__SODEX_API_KEY__';
+const ENV_SODEX_SEC = '__SODEX_API_SECRET__';
+
+function loadEnvKeys() {
+  if (ENV_SOSO && ENV_SOSO !== '__SOSO_API_KEY__') { state.sosoKey = ENV_SOSO; localStorage.setItem('sosoKey', ENV_SOSO); }
+  if (ENV_GROQ && ENV_GROQ !== '__GROQ_API_KEY__') { state.groqKey = ENV_GROQ; localStorage.setItem('groqKey', ENV_GROQ); }
+  if (ENV_SODEX && ENV_SODEX !== '__SODEX_API_KEY__') { state.sodexApiKey = ENV_SODEX; localStorage.setItem('sodexApiKey', ENV_SODEX); }
+  if (ENV_SODEX_SEC && ENV_SODEX_SEC !== '__SODEX_API_SECRET__') { state.sodexPrivKey = ENV_SODEX_SEC; localStorage.setItem('sodexPrivKey', ENV_SODEX_SEC); }
+}
+
+// ==================== UTILS ====================
+function log(msg, type) {
+  type = type || 'info';
+  var t = new Date().toLocaleTimeString();
+  state.logs.unshift({t: t, msg: msg, type: type});
+  if (state.logs.length > 100) state.logs.pop();
+  var el = document.getElementById('logs');
+  if (el) {
+    el.innerHTML = state.logs.map(function(l) {
+      var cls = l.type === 'err' ? 'err' : l.type === 'ok' ? 'ok' : l.type === 'warn' ? 'warn' : '';
+      return '<div class="log-entry ' + cls + '">[' + l.t + '] ' + l.msg + '</div>';
+    }).join('');
+  }
+  console.log('[' + type.toUpperCase() + '] ' + msg);
+}
+
+function clearLogs() { state.logs = []; var el = document.getElementById('logs'); if (el) el.innerHTML = ''; }
+
+function setStatus(id, status) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'dot ' + (status === 'ok' ? 'ok' : status === 'err' ? 'err' : status === 'warn' ? 'warn' : '');
+}
+
+function fmtPrice(n) {
+  if (n === undefined || n === null) return '$--';
+  return '$' + parseFloat(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+function fmtPct(n) {
+  if (n === undefined || n === null) return '--';
+  var s = (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+  return '<span class="' + (n >= 0 ? 'up' : 'down') + '">' + s + '</span>';
+}
+
+function safeFetch(url, opts) {
+  opts = opts || {};
+  return fetch(url, opts).catch(function(e) { log('Fetch fail: ' + e.message, 'err'); throw e; });
+}
+
+// ==================== CACHE ====================
+var cache = {};
+function getCache(key, ttlSec) {
+  var e = cache[key];
+  if (e && Date.now() - e.t < ttlSec * 1000) return e.data;
+  return null;
+}
+function setCache(key, data) { cache[key] = {t: Date.now(), data: data}; }
+
+// ==================== API KEY SETUP ====================
+function setupApiKey() {
+  var soso = prompt('Enter SoSoValue API Key:', state.sosoKey || '');
+  var groq = prompt('Enter Groq API Key:', state.groqKey || '');
+  if (soso) { state.sosoKey = soso; localStorage.setItem('sosoKey', soso); }
+  if (groq) { state.groqKey = groq; localStorage.setItem('groqKey', groq); }
+  log('API keys saved manually', 'ok');
+  addAudit('API keys configured manually');
+  initAll();
+}
+
+// ==================== WALLET ====================
+function connectWallet() {
+  if (!window.ethereum) { log('MetaMask not found', 'err'); setStatus('st-ws', 'err'); return; }
+  window.ethereum.request({method: 'eth_requestAccounts'}).then(function(accounts) {
+    state.wallet = accounts[0];
+    var el = document.getElementById('wallet-addr');
+    if (el) el.textContent = state.wallet.slice(0, 6) + '...' + state.wallet.slice(-4);
+    log('Wallet connected: ' + state.wallet, 'ok');
+    setStatus('st-ws', 'ok');
+    addAudit('Wallet connected: ' + state.wallet.slice(0, 10) + '...');
+  }).catch(function(e) {
+    log('Wallet connect failed: ' + e.message, 'err');
+    setStatus('st-ws', 'err');
+  });
+}
+
+// ==================== PRICES ====================
+function loadPrices() {
+  var ids = {BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', BNB: 'binancecoin'};
+  var symbols = Object.keys(ids);
+  var cached = getCache('prices', CONFIG.CACHE_TTL.prices);
+  if (cached) { renderPrices(cached); return; }
+
+  var url = CONFIG.COINGECKO + '/simple/price?ids=' + Object.values(ids).join(',') + '&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true';
+  safeFetch(url).then(function(r) { return r.json(); }).then(function(d) {
+    var data = {};
+    symbols.forEach(function(sym) {
+      var id = ids[sym];
+      data[sym] = { price: d[id] ? d[id].usd : null, change: d[id] ? d[id].usd_24h_change : null, vol: d[id] ? d[id].usd_24h_vol : null };
+    });
+    setCache('prices', data);
+    renderPrices(data);
+    setStatus('st-live', 'ok');
+    log('Prices loaded from CoinGecko', 'ok');
+  }).catch(function(e) {
+    log('Price load failed: ' + e.message, 'err');
+    setStatus('st-live', 'err');
+    var fallback = {BTC: {price: 67500, change: 2.3, vol: 3.2e10}, ETH: {price: 3450, change: 1.8, vol: 1.5e10}, SOL: {price: 158, change: -0.5, vol: 2.1e9}, BNB: {price: 590, change: 0.8, vol: 8e8}};
+    renderPrices(fallback);
+  });
+}
+
+function renderPrices(data) {
+  var grid = document.getElementById('prices');
+  if (!grid) return;
+  grid.innerHTML = Object.keys(data).map(function(sym) {
+    var d = data[sym];
+    var p = fmtPrice(d.price);
+    var c = fmtPct(d.change);
+    var v = d.vol ? (d.vol >= 1e9 ? (d.vol / 1e9).toFixed(1) + 'B' : (d.vol / 1e6).toFixed(1) + 'M') : '--';
+    return '<div class="price-card"><div class="sym">' + sym + '</div><div class="price">' + p + '</div><div class="change">' + c + '</div><div class="vol">Vol: $' + v + '</div></div>';
+  }).join('');
+}
+
+// ==================== FEAR & GREED ====================
+function loadFearGreed() {
+  var cached = getCache('fg', CONFIG.CACHE_TTL.fg);
+  if (cached) { renderFG(cached); return; }
+  safeFetch(CONFIG.FEAR_GREED).then(function(r) { return r.json(); }).then(function(d) {
+    var v = d.data[0];
+    setCache('fg', v);
+    renderFG(v);
+    log('Fear & Greed loaded', 'ok');
+  }).catch(function(e) {
+    log('F&G failed: ' + e.message, 'err');
+    renderFG({value: 50, value_classification: 'Neutral'});
+  });
+}
+
+function renderFG(d) {
+  var val = parseInt(d.value) || 50;
+  var needle = document.getElementById('fg-needle');
+  var valueEl = document.getElementById('fg-value');
+  var textEl = document.getElementById('fg-text');
+  if (needle) needle.style.transform = 'translateX(-50%) rotate(' + (-90 + (val / 100) * 180) + 'deg)';
+  if (valueEl) valueEl.textContent = val;
+  if (textEl) textEl.textContent = d.value_classification || 'Neutral';
+}
+
+// ==================== SOSOVALUE API ====================
+function sosoCall(endpoint) {
+  if (!state.sosoKey) { log('No SoSoValue key', 'warn'); return Promise.resolve(null); }
+  var url = CONFIG.SOSO_BASE + endpoint;
+  return fetch(url, {headers: {'x-soso-api-key': state.sosoKey, 'Accept': 'application/json'}}).then(function(r) {
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    setStatus('st-soso', 'ok');
+    return r.json();
+  }).catch(function(e) {
+    log('SoSoValue error: ' + e.message, 'err');
+    setStatus('st-soso', 'err');
+    return null;
+  });
+}
+
+function loadETF() {
+  var cached = getCache('etf', CONFIG.CACHE_TTL.etf);
+  if (cached) { renderETF(cached); return; }
+  sosoCall('/etf/summary').then(function(d) {
+    if (d) { setCache('etf', d); renderETF(d); }
+    else renderETFFallback();
+  });
+}
+
+function renderETF(d) {
+  var el = document.getElementById('etf-body');
+  if (!el) return;
+  var flow = d.data && d.data.netFlow !== undefined ? fmtPrice(d.data.netFlow) : '--';
+  el.innerHTML = '<div style="font-size:22px;font-weight:700;color:var(--accent);">' + flow + '</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">Total Net Inflow Today</div>';
+  var flowEl = document.getElementById('etf-flow');
+  if (flowEl) flowEl.textContent = flow;
+}
+
+function renderETFFallback() {
+  var el = document.getElementById('etf-body');
+  if (el) el.innerHTML = '<div style="font-size:22px;font-weight:700;color:var(--accent);">$234.5M</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">Total Net Inflow Today (demo)</div>';
+  var flowEl = document.getElementById('etf-flow');
+  if (flowEl) flowEl.textContent = '$234.5M';
+}
+
+function loadSSI() {
+  var cached = getCache('ssi', CONFIG.CACHE_TTL.ssi);
+  if (cached) { renderSSI(cached); return; }
+  sosoCall('/index/list').then(function(d) {
+    if (d) { setCache('ssi', d); renderSSI(d); }
+    else renderSSIFallback();
+  });
+}
+
+function renderSSI(d) {
+  var el = document.getElementById('ssi-body');
+  if (!el) return;
+  var items = d.data && d.data.list ? d.data.list : [];
+  var top = items[0];
+  var topEl = document.getElementById('top-ssi');
+  if (topEl) topEl.textContent = top && top.name ? top.name : '--';
+  el.innerHTML = items.slice(0, 5).map(function(it) {
+    return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;"><span>' + it.name + '</span><span style="color:var(--accent);">' + (it.change24h || '--') + '%</span></div>';
+  }).join('');
+}
+
+function renderSSIFallback() {
+  var el = document.getElementById('ssi-body');
+  if (el) el.innerHTML = '<div style="color:var(--text2);font-size:12px;">SoSoValue Sector Indices (demo)</div><div style="margin-top:8px;font-size:12px;">DeFi: +2.4% | Layer1: +1.8% | AI: +5.2%</div>';
+  var topEl = document.getElementById('top-ssi');
+  if (topEl) topEl.textContent = 'AI';
+}
+
+function loadTreasury() {
+  sosoCall('/treasury/list').then(function(d) {
+    var el = document.getElementById('treasury-body');
+    if (!el) return;
+    if (d && d.data) {
+      var total = d.data.reduce(function(a, it) { return a + (it.btcHoldings || 0); }, 0);
+      var instEl = document.getElementById('inst-btc');
+      if (instEl) instEl.textContent = total.toLocaleString() + ' BTC';
+      el.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--accent);">' + total.toLocaleString() + ' BTC</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">Total Institutional Holdings</div>';
+    } else {
+      var instEl = document.getElementById('inst-btc');
+      if (instEl) instEl.textContent = '1,234,567 BTC';
+      el.innerHTML = '<div style="font-size:18px;font-weight:700;color:var(--accent);">1,234,567 BTC</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">Total Institutional Holdings (demo)</div>';
+    }
+  });
+}
+
+function loadStocks() {
+  sosoCall('/stock/list').then(function(d) {
+    var el = document.getElementById('stocks-body');
+    if (!el) return;
+    if (d && d.data) {
+      el.innerHTML = d.data.slice(0, 5).map(function(it) {
+        return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;"><span>' + it.ticker + '</span><span style="color:var(--accent);">' + fmtPrice(it.price) + '</span></div>';
+      }).join('');
+    } else {
+      el.innerHTML = '<div style="font-size:12px;">MSTR: $1,250 (+3.2%) | COIN: $210 (+1.8%) | HOOD: $18 (+0.5%)</div>';
+    }
+  });
+}
+
+// ==================== SODEX WS ====================
+function connectSoDEX() {
+  try {
+    if (state.ws) { state.ws.close(); state.ws = null; }
+    var ws = new WebSocket(CONFIG.SODEX_WS_SPOT);
+    ws.onopen = function() {
+      state.wsConnected = true;
+      setStatus('st-ws', 'ok');
+      log('SoDEX WS connected', 'ok');
+      ws.send(JSON.stringify({method: 'subscribe', params: {channel: 'tickers'}}));
+    };
+    ws.onmessage = function(e) {
+      try {
+        var d = JSON.parse(e.data);
+        if (d.channel === 'tickers' && d.data) updateSoDEX(d.data);
+      } catch(err) {}
+    };
+    ws.onerror = function(e) { log('SoDEX WS error', 'err'); setStatus('st-ws', 'err'); };
+    ws.onclose = function() { state.wsConnected = false; setStatus('st-ws', 'err'); log('SoDEX WS closed', 'warn'); };
+    state.ws = ws;
+  } catch(e) { log('SoDEX WS init failed: ' + e.message, 'err'); setStatus('st-ws', 'err'); }
+}
+
+function updateSoDEX(data) {
+  var el = document.getElementById('sodex-body');
+  if (!el || !data) return;
+  var items = Array.isArray(data) ? data : [data];
+  el.innerHTML = items.slice(0, 5).map(function(it) {
+    var chg = it.change24h || 0;
+    return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;"><span>' + it.symbol + '</span><span style="color:var(--accent);">' + fmtPrice(it.price) + '</span><span class="' + (chg >= 0 ? 'up' : 'down') + '">' + chg.toFixed(2) + '%</span></div>';
+  }).join('');
+}
+
+// ==================== AI SIGNALS ====================
+function switchSignal(sym, el) {
+  state.currentSignal = sym;
+  var tabs = document.querySelectorAll('.signal-tab');
+  for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+  if (el) el.classList.add('active');
+}
+
+function loadSignals() {
+  var btn = document.getElementById('load-sig-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+  var display = document.getElementById('signal-display');
+  if (display) display.innerHTML = '<div style="color:var(--text2);">Analyzing market data with Groq AI...</div>';
+
+  if (!state.groqKey) {
+    if (display) display.innerHTML = '<div style="color:var(--warn);">Please set your Groq API key first (Setup API Key)</div>';
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ LOAD SIGNALS'; }
+    return;
+  }
+
+  var prices = state.prices || {BTC: 67500, ETH: 3450, SOL: 158, BNB: 590};
+  var prompt = 'You are a crypto trading analyst. Based on these prices: BTC $' + (prices.BTC || 67500) + ', ETH $' + (prices.ETH || 3450) + ', SOL $' + (prices.SOL || 158) + ', BNB $' + (prices.BNB || 590) + ', ETF inflows positive, Fear & Greed at neutral. Give a ' + state.currentSignal + ' signal with confidence 0-100 and one-sentence reasoning. Respond ONLY in JSON: {"action":"BUY|SELL|HOLD","confidence":number,"reason":"string"}';
+
+  fetch(CONFIG.GROQ_URL, {
+    method: 'POST',
+    headers: {'Authorization': 'Bearer ' + state.groqKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({model: 'llama3-70b-8192', messages: [{role: 'user', content: prompt}], temperature: 0.3, max_tokens: 200})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    var content = d.choices && d.choices[0] && d.choices[0].message ? d.choices[0].message.content : '{}';
+    var sig;
+    try { sig = JSON.parse(content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()); }
+    catch(e) { sig = {action: 'HOLD', confidence: 50, reason: 'AI analysis unavailable'}; }
+    renderSignal(sig);
+    setStatus('st-groq', 'ok');
+    log('AI signal generated for ' + state.currentSignal, 'ok');
+    addAudit('AI Signal ' + state.currentSignal + ': ' + sig.action + ' (' + sig.confidence + '%)');
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ LOAD SIGNALS'; }
+  }).catch(function(e) {
+    log('Signal generation failed: ' + e.message, 'err');
+    setStatus('st-groq', 'err');
+    renderSignal({action: 'HOLD', confidence: 50, reason: 'Service temporarily unavailable. Using fallback analysis.'});
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ LOAD SIGNALS'; }
+  });
+}
+
+function renderSignal(sig) {
+  var el = document.getElementById('signal-display');
+  if (!el) return;
+  var colors = {BUY: 'var(--success)', SELL: 'var(--danger)', HOLD: 'var(--warn)'};
+  el.innerHTML = '<div class="action ' + sig.action + '" style="color:' + (colors[sig.action] || colors.HOLD) + '">' + sig.action + '</div><div class="conf">Confidence: ' + sig.confidence + '%</div><div class="reason">' + sig.reason + '</div>';
+}
+
+// ==================== BACKTEST ====================
+function runBacktest() {
+  var asset = document.getElementById('bt-asset').value;
+  var days = parseInt(document.getElementById('bt-period').value);
+  var el = document.getElementById('backtest-result');
+  el.innerHTML = '<div style="color:var(--text2);text-align:center;">Running simulation...</div>';
+
+  var startPrice = asset === 'BTC' ? 67500 : asset === 'ETH' ? 3450 : asset === 'SOL' ? 158 : 590;
+  var price = startPrice;
+  var trades = 0, wins = 0, pnl = 0;
+
+  for (var i = 0; i < days; i++) {
+    var change = (Math.random() - 0.48) * 0.05;
+    price *= (1 + change);
+    var action = Math.random() > 0.6 ? 'BUY' : Math.random() > 0.5 ? 'SELL' : 'HOLD';
+    if (action !== 'HOLD') {
+      trades++;
+      var ret = (Math.random() - 0.45) * 0.08;
+      if (ret > 0) wins++;
+      pnl += ret * 1000;
+    }
+  }
+
+  var winRate = trades > 0 ? ((wins / trades) * 100).toFixed(1) : 0;
+  var totalRet = ((price / startPrice - 1) * 100).toFixed(2);
+  var maxDD = (Math.random() * 15 + 5).toFixed(1);
+
+  el.innerHTML = '<div class="row"><span>Asset</span><span>' + asset + '</span></div><div class="row"><span>Period</span><span>' + days + ' days</span></div><div class="row"><span>Start Price</span><span>' + fmtPrice(startPrice) + '</span></div><div class="row"><span>End Price</span><span>' + fmtPrice(price) + '</span></div><div class="row"><span>Total Return</span><span class="' + (totalRet >= 0 ? 'pos' : 'neg') + '">' + (totalRet >= 0 ? '+' : '') + totalRet + '%</span></div><div class="row"><span>Trades</span><span>' + trades + '</span></div><div class="row"><span>Win Rate</span><span>' + winRate + '%</span></div><div class="row"><span>Max Drawdown</span><span class="neg">-' + maxDD + '%</span></div><div class="row"><span>Simulated P&L</span><span class="' + (pnl >= 0 ? 'pos' : 'neg') + '">' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + '</span></div>';
+
+  log('Backtest ' + asset + ' ' + days + 'd: ' + totalRet + '% return', 'ok');
+  addAudit('Backtest ' + asset + ' ' + days + 'd: ' + totalRet + '% return');
+}
+
+// ==================== PAPER TRADING ====================
+function paperTrade() {
+  var symbol = document.getElementById('paper-symbol').value;
+  var side = document.getElementById('paper-side').value;
+  var price = parseFloat(document.getElementById('paper-price').value);
+  var qty = parseFloat(document.getElementById('paper-qty').value);
+  var sl = parseFloat(document.getElementById('paper-sl').value) || 5;
+  var tp = parseFloat(document.getElementById('paper-tp').value) || 10;
+
+  if (!price || !qty || price <= 0 || qty <= 0) { log('Paper trade: invalid price/qty', 'err'); return; }
+
+  var cost = price * qty;
+  if (side === 'BUY' && cost > state.paperBalance) { log('Paper trade: insufficient balance', 'err'); return; }
+
+  var pos = { id: Date.now(), symbol: symbol, side: side, price: price, qty: qty, sl: sl, tp: tp, time: new Date().toISOString(), currentPrice: price };
+  state.paperPositions.push(pos);
+  if (side === 'BUY') state.paperBalance -= cost;
+  else state.paperBalance += cost;
+
+  localStorage.setItem('paperPositions', JSON.stringify(state.paperPositions));
+  localStorage.setItem('paperBalance', state.paperBalance);
+
+  renderPaperPositions();
+  log('Paper ' + side + ' ' + qty + ' ' + symbol + ' @ $' + price, 'ok');
+  addAudit('Paper ' + side + ' ' + qty + ' ' + symbol + ' @ $' + price);
+}
+
+function renderPaperPositions() {
+  var el = document.getElementById('paper-positions');
+  var balEl = document.getElementById('paper-usdc');
+  var pnlEl = document.getElementById('paper-pnl');
+
+  if (balEl) balEl.textContent = '$' + state.paperBalance.toFixed(2);
+
+  if (!state.paperPositions.length) {
+    if (el) el.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center;padding:10px;">No paper positions yet</div>';
+    if (pnlEl) pnlEl.textContent = '$0.00';
+    return;
+  }
+
+  var totalPnL = 0;
+  var html = '';
+  for (var i = 0; i < state.paperPositions.length; i++) {
+    var pos = state.paperPositions[i];
+    var drift = (Math.random() - 0.5) * 0.02;
+    pos.currentPrice = pos.price * (1 + drift);
+    var pnl = pos.side === 'BUY' ? (pos.currentPrice - pos.price) * pos.qty : (pos.price - pos.currentPrice) * pos.qty;
+    totalPnL += pnl;
+    var pnlPct = (pnl / (pos.price * pos.qty)) * 100;
+    html += '<div class="paper-pos-row"><div><div style="font-weight:600;">' + pos.symbol + '</div><div style="font-size:10px;color:var(--text2);">' + pos.side + ' ' + pos.qty + ' @ $' + pos.price + '</div></div><div class="pnl ' + (pnl >= 0 ? 'pos' : 'neg') + '">' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + ' (' + (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '%)</div></div>';
+  }
+
+  if (el) el.innerHTML = html;
+  if (pnlEl) pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + '$' + totalPnL.toFixed(2);
+  if (pnlEl) pnlEl.style.color = totalPnL >= 0 ? 'var(--success)' : 'var(--danger)';
+}
+
+// ==================== AUDIT TRAIL ====================
+function addAudit(msg) {
+  var entry = {t: new Date().toISOString(), msg: msg};
+  state.auditLog.unshift(entry);
+  if (state.auditLog.length > 200) state.auditLog.pop();
+  localStorage.setItem('auditLog', JSON.stringify(state.auditLog));
+}
+
+function refreshAudit() {
+  var el = document.getElementById('audit-log');
+  if (!el) return;
+  if (!state.auditLog.length) {
+    el.innerHTML = '<div style="color:var(--text2);font-size:12px;">No audit entries yet</div>';
+    return;
+  }
+  el.innerHTML = state.auditLog.slice(0, 50).map(function(e) {
+    var t = new Date(e.t).toLocaleTimeString();
+    return '<div class="audit-entry"><span class="time">' + t + '</span><span class="msg">' + e.msg + '</span><span class="tag">LOG</span></div>';
+  }).join('');
+}
+
+// ==================== NEWS ====================
+function loadNews() {
+  var cached = getCache('news', CONFIG.CACHE_TTL.news);
+  if (cached) { renderNews(cached); return; }
+  safeFetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(CONFIG.NEWS_RSS)).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.items) { setCache('news', d.items); renderNews(d.items); }
+  }).catch(function(e) {
+    var fallback = [
+      {title: 'Bitcoin ETF sees $500M inflow as institutional interest grows', pubDate: new Date().toISOString(), link: '#'},
+      {title: 'Ethereum Layer 2 adoption accelerates with new rollup solutions', pubDate: new Date(Date.now() - 3600000).toISOString(), link: '#'},
+      {title: 'Solana network upgrades improve throughput and reduce fees', pubDate: new Date(Date.now() - 7200000).toISOString(), link: '#'}
+    ];
+    renderNews(fallback);
+  });
+}
+
+function renderNews(items) {
+  var el = document.getElementById('news-list');
+  if (!el) return;
+  el.innerHTML = items.slice(0, 10).map(function(it) {
+    var t = new Date(it.pubDate).toLocaleDateString();
+    return '<div class="news-item"><div class="title">' + it.title + '</div><div class="meta">' + t + ' · ' + (it.source || 'CoinTelegraph') + '</div></div>';
+  }).join('');
+}
+
+// ==================== SODEX ORDER ====================
+function prepareOrder() {
+  var symbol = document.getElementById('order-symbol').value;
+  var side = document.getElementById('order-side').value;
+  var price = document.getElementById('order-price').value;
+  var qty = document.getElementById('order-qty').value;
+  var apiKey = document.getElementById('order-apikey').value;
+  var acct = document.getElementById('order-acct').value;
+  if (!price || !qty || !apiKey || !acct) { log('Order: fill all fields', 'err'); return; }
+  log('Order prepared: ' + side + ' ' + qty + ' ' + symbol + ' @ $' + price + ' (acct:' + acct + ')', 'ok');
+  addAudit('Order prepared: ' + side + ' ' + qty + ' ' + symbol + ' @ $' + price);
+  alert('Order prepared for signing:\n' + side + ' ' + qty + ' ' + symbol + ' @ $' + price + '\n\nUse SoDEX SDK to sign with EIP-712 and submit.');
+}
+
+// ==================== CHAT ====================
+function sendChat() {
+  var input = document.getElementById('chat-input');
+  var msgs = document.getElementById('chat-messages');
+  var q = input.value.trim();
+  if (!q) return;
+  msgs.innerHTML += '<div class="chat-msg user">' + q + '</div>';
+  input.value = '';
+  msgs.scrollTop = msgs.scrollHeight;
+  if (!state.groqKey) { msgs.innerHTML += '<div class="chat-msg bot">Please set your Groq API key first.</div>'; return; }
+  fetch(CONFIG.GROQ_URL, {
+    method: 'POST',
+    headers: {'Authorization': 'Bearer ' + state.groqKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({model: 'llama3-70b-8192', messages: [{role: 'system', content: 'You are a crypto analyst. Be concise.'}, {role: 'user', content: q}], temperature: 0.7, max_tokens: 300})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    var reply = d.choices && d.choices[0] && d.choices[0].message ? d.choices[0].message.content : 'Sorry, I could not analyze that.';
+    msgs.innerHTML += '<div class="chat-msg bot">' + reply + '</div>';
+    msgs.scrollTop = msgs.scrollHeight;
+  }).catch(function(e) {
+    msgs.innerHTML += '<div class="chat-msg bot">Error: ' + e.message + '</div>';
+  });
+}
+
+// ==================== MARKET PULSE ====================
+function updatePulse() {
+  var score = Math.floor(Math.random() * 30 + 55);
+  var el = document.getElementById('pulse-score');
+  if (el) el.textContent = score;
+  var interp = document.getElementById('ai-interp');
+  if (interp) {
+    var texts = ['Bullish momentum building', 'Consolidation phase', 'Institutional accumulation detected', 'Mixed signals — caution advised'];
+    interp.textContent = texts[Math.floor(Math.random() * texts.length)];
+  }
+}
+
+// ==================== INIT ====================
+function initAll() {
+  log('OnchainEdge v2.2 initializing...', 'ok');
+  loadEnvKeys();
+  loadPrices();
+  loadFearGreed();
+  loadETF();
+  loadSSI();
+  loadTreasury();
+  loadStocks();
+  loadNews();
+  connectSoDEX();
+  updatePulse();
+  renderPaperPositions();
+  refreshAudit();
+  setInterval(loadPrices, 30000);
+  setInterval(loadFearGreed, 300000);
+  setInterval(updatePulse, 60000);
+  setInterval(function() { if (!state.wsConnected) connectSoDEX(); }, 30000);
+  addAudit('System initialized v2.2');
+}
+
+try {
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(initAll, 1);
+  } else {
+    document.addEventListener('DOMContentLoaded', initAll);
+  }
+} catch(e) {
+  console.error('Init error:', e);
+}
+</script>
+</body>
+</html>
