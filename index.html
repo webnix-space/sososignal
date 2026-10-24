@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OnchainEdge v2.1</title>
+<title>OnchainEdge v2.2</title>
 <style>
 :root{--bg:#0a0e1a;--card:#111827;--card2:#1a2236;--accent:#00d4aa;--accent2:#0ea5e9;--text:#e2e8f0;--muted:#94a3b8;--danger:#ef4444;--success:#22c55e;--warn:#f59e0b;--border:#1e293b;--font:'Segoe UI',system-ui,-apple-system,sans-serif}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -24,6 +24,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 .btn:hover{background:var(--card2);border-color:var(--accent)}
 .btn-primary{background:linear-gradient(135deg,var(--accent),#059669);border:none;color:#000}
 .btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
 .btn-danger{background:linear-gradient(135deg,var(--danger),#b91c1c);border:none;color:#fff}
 
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px}
@@ -38,8 +39,8 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 .price-card .sym{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
 .price-card .price{font-size:1.6rem;font-weight:800;margin:4px 0}
 .price-card .change{font-size:0.85rem;font-weight:700}
-.price-card .change.up{color:var(--success)}
-.price-card .change.down{color:var(--danger)}
+.up{color:var(--success)}
+.down{color:var(--danger)}
 .price-card .source{font-size:0.7rem;color:var(--muted);margin-top:4px}
 
 .etf-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
@@ -50,8 +51,8 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 .etf-card .flow.in{color:var(--success)}
 .etf-card .flow.out{color:var(--danger)}
 .etf-total{text-align:center;padding:12px;font-size:1.1rem;font-weight:700;margin-bottom:10px;border-radius:12px;background:var(--card2)}
-.etf-total.in{color:var(--success)}
-.etf-total.out{color:var(--danger)}
+.etf-total .in{color:var(--success)}
+.etf-total .out{color:var(--danger)}
 
 .ssi-list{display:flex;flex-direction:column;gap:8px}
 .ssi-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--card2);border-radius:10px}
@@ -60,18 +61,16 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 .ssi-item .desc{font-size:0.75rem;color:var(--muted)}
 .ssi-item .price{font-weight:800;font-size:0.95rem}
 .ssi-item .ch{font-size:0.8rem;font-weight:700;margin-left:8px}
-.ssi-item .ch.up{color:var(--success)}
-.ssi-item .ch.down{color:var(--danger)}
 .ssi-item .sig{font-size:0.7rem;padding:2px 8px;border-radius:6px;font-weight:700;margin-left:8px}
 .sig-BUY{background:rgba(34,197,94,.15);color:var(--success)}
 .sig-SELL{background:rgba(239,68,68,.15);color:var(--danger)}
-.sig-HOLD{background:rgba(148,163,184,.15);color:var(--muted)}
+.sig-HOLD,.sig-NEUTRAL{background:rgba(148,163,184,.15);color:var(--muted)}
 
 .signal-result{text-align:center;padding:20px;background:var(--card2);border-radius:12px;margin-top:12px}
 .signal-result .sig-text{font-size:2.5rem;font-weight:900;margin-bottom:8px}
 .signal-result .sig-text.BUY{color:var(--success)}
 .signal-result .sig-text.SELL{color:var(--danger)}
-.signal-result .sig-text.HOLD{color:var(--warn)}
+.signal-result .sig-text.HOLD,.signal-result .sig-text.NEUTRAL{color:var(--warn)}
 .signal-result .conf{font-size:1.2rem;color:var(--muted)}
 .signal-result .reasoning{text-align:left;margin-top:12px;font-size:0.9rem;color:var(--muted);line-height:1.6}
 .signal-result .factors{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;justify-content:center}
@@ -92,6 +91,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 .trade-form{display:grid;gap:10px}
 .trade-form input,.trade-form select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.9rem}
 .trade-form input:focus,.trade-form select:focus{outline:none;border-color:var(--accent)}
+.trade-form input[readonly]{opacity:.7}
 .trade-form label{font-size:0.8rem;color:var(--muted);margin-bottom:2px;display:block}
 .trade-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
@@ -105,12 +105,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 .modal .step .step-title{font-weight:700}
 .modal .step .step-desc{font-size:0.85rem;color:var(--muted)}
 
-.audit-panel{max-height:300px;overflow-y:auto;font-family:monospace;font-size:0.75rem}
-.audit-entry{padding:6px 8px;border-bottom:1px solid var(--border);display:flex;gap:8px}
-.audit-entry .time{color:var(--muted);white-space:nowrap}
-.audit-entry .action{color:var(--accent);font-weight:700}
-.audit-entry .status-success{color:var(--success)}
-.audit-entry .status-error{color:var(--danger)}
+.audit-panel{max-height:300px;overflow-y:auto;font-size:0.8rem}
 
 .fg-gauge{position:relative;width:200px;height:100px;margin:0 auto}
 .fg-gauge .arc{width:200px;height:100px;border-radius:100px 100px 0 0;background:conic-gradient(from 180deg,var(--danger) 0deg,var(--warn) 60deg,#fbbf24 90deg,var(--success) 120deg,#22c55e 150deg);mask:radial-gradient(at 50% 100%,transparent 60%,#000 61%);-webkit-mask:radial-gradient(at 50% 100%,transparent 60%,#000 61%)}
@@ -131,15 +126,15 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 .chat-input input{flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
 .chat-input button{padding:10px 16px;border-radius:10px;border:none;background:var(--accent);color:#000;font-weight:700;cursor:pointer}
 
+.row{display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--card2);border-radius:8px;margin-bottom:6px;gap:8px}
+.mini{font-size:0.75rem;color:var(--muted)}
+
 @media(min-width:768px){
 .price-grid{grid-template-columns:repeat(4,1fr)}
 .etf-grid{grid-template-columns:repeat(3,1fr)}
 .top-actions{grid-template-columns:repeat(4,1fr)}
 }
 </style>
-<base target="_blank">
-<base target="_blank">
-<base target="_blank">
 <base target="_blank">
 </head>
 <body>
@@ -149,9 +144,9 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
   <h1>ONCHAINEDGE</h1>
   <p class="subtitle">AI Crypto Terminal</p>
   <div class="status-bar">
-    <span><span class="dot" id="soso-dot"></span>SoSoValue</span>
-    <span><span class="dot" id="groq-dot"></span>Groq AI</span>
-    <span><span class="dot" id="live-dot"></span>Live Data</span>
+    <span><span class="dot warn" id="soso-dot"></span>SoSoValue</span>
+    <span><span class="dot warn" id="groq-dot"></span>Groq AI</span>
+    <span><span class="dot warn" id="live-dot"></span>Live Data</span>
     <span><span class="dot" id="ws-dot"></span>WS: <span id="ws-status">connecting</span></span>
   </div>
 </header>
@@ -212,7 +207,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
     </div>
     <div style="text-align:center;padding:14px;background:var(--card2);border-radius:12px">
       <div style="font-size:0.8rem;color:var(--muted)">🤖 AI Interpretation</div>
-      <div style="font-size:1.3rem;font-weight:800;margin-top:4px" id="pulse-ai">Analyzing...</div>
+      <div style="font-size:1.3rem;font-weight:800;margin-top:4px" id="pulse-ai">Run a signal</div>
     </div>
   </div>
   <div style="margin-top:12px;text-align:center">
@@ -224,11 +219,11 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 <div class="card">
   <div class="card-header">
     <div class="card-title">💰 ETF Flow Tracker</div>
-    <div class="card-badge live">MULTI-SOURCE</div>
+    <div class="card-badge live">FARSIDE</div>
   </div>
   <div class="etf-total" id="etf-total">Loading ETF data...</div>
   <div class="etf-grid" id="etfs">Loading...</div>
-  <div style="margin-top:10px;font-size:0.75rem;color:var(--muted);text-align:center">Sources: SoSoValue + Farside Investors (live)</div>
+  <div style="margin-top:10px;font-size:0.75rem;color:var(--muted);text-align:center" id="etf-source">Source: Farside Investors public ETF flow tables</div>
 </div>
 
 <div class="card">
@@ -267,7 +262,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 <div class="card">
   <div class="card-header">
     <div class="card-title">🤖 AI Signal Engine</div>
-    <div class="card-badge">GROQ AI</div>
+    <div class="card-badge">GPT-OSS</div>
   </div>
   <button class="btn btn-primary" style="width:100%;margin-bottom:12px" onclick="loadSignals()" id="load-sig-btn">⚡ LOAD SIGNALS</button>
   <div class="tabs">
@@ -283,20 +278,19 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 <div class="card">
   <div class="card-header">
     <div class="card-title">📋 AI Signal Audit Trail</div>
-    <div class="card-badge">LLAMA-3.1</div>
+    <div class="card-badge">GPT-OSS</div>
   </div>
-  <div style="margin-bottom:10px;font-size:0.85rem;color:var(--muted)">History of AI-generated trading signals with confidence scores and risk checks.</div>
+  <div style="margin-bottom:10px;font-size:0.85rem;color:var(--muted)">Every AI signal stored with confidence, entry price and time. All assets.</div>
   <div style="margin-bottom:10px">
     <button class="btn" style="font-size:0.8rem;padding:6px 12px" onclick="loadSignalAudit()">🔄 Refresh Signal History</button>
   </div>
-  <div class="audit-panel" id="audit-panel">Click Refresh to load AI signal history...</div>
+  <div class="audit-panel" id="audit-panel">Loading...</div>
 </div>
-
-
 
 <div class="card">
   <div class="card-header">
     <div class="card-title">🔮 What If? Simulator</div>
+    <div class="card-badge">REAL PRICES</div>
   </div>
   <div style="display:flex;gap:10px;margin-bottom:12px">
     <select id="backtest-asset" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text)">
@@ -306,7 +300,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
       <option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
     </select>
   </div>
-  <button class="btn btn-primary" style="width:100%;margin-bottom:12px" onclick="runBacktest()">Run Backtest</button>
+  <button class="btn btn-primary" style="width:100%;margin-bottom:12px" onclick="runBacktest()" id="backtest-btn">Run Backtest</button>
   <div id="backtest-result"></div>
 </div>
 
@@ -315,10 +309,10 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
     <div class="card-title">📜 Paper Trading</div>
     <div class="card-badge">SIMULATION</div>
   </div>
-  <div style="margin-bottom:12px;font-size:0.85rem;color:var(--muted)">Practice trading with virtual USDC. No real funds at risk.</div>
+  <div style="margin-bottom:12px;font-size:0.85rem;color:var(--muted)">Virtual USDC, executed at the live market price. No real funds at risk.</div>
   <div style="display:flex;gap:10px;margin-bottom:12px">
     <div style="flex:1;text-align:center;padding:10px;background:var(--card2);border-radius:10px">
-      <div style="font-size:0.75rem;color:var(--muted)">Balance</div>
+      <div style="font-size:0.75rem;color:var(--muted)">Cash</div>
       <div style="font-size:1.3rem;font-weight:800;color:var(--accent)" id="paper-balance">$10,000.00</div>
     </div>
     <div style="flex:1;text-align:center;padding:10px;background:var(--card2);border-radius:10px">
@@ -336,7 +330,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
       <div><label>Side</label><select id="paper-side"><option>BUY</option><option>SELL</option></select></div>
     </div>
     <div class="trade-row">
-      <div><label>Price (USDC)</label><input type="number" id="paper-price" placeholder="0.00" step="0.01"></div>
+      <div><label>Market price (USDC)</label><input type="number" id="paper-price" placeholder="live price" readonly></div>
       <div><label>Quantity</label><input type="number" id="paper-qty" placeholder="0.00" step="0.001"></div>
     </div>
     <button class="btn btn-primary" onclick="paperTrade()" id="paper-btn">📋 Execute Paper Trade</button>
@@ -350,9 +344,8 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
     <div style="font-size:0.85rem;font-weight:700;margin-bottom:8px">📖 Trade History</div>
     <div id="paper-history" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto"></div>
   </div>
+  <button class="btn" style="margin-top:12px;font-size:0.8rem;padding:6px 12px" onclick="resetPaper()">Reset paper account</button>
 </div>
-
-
 
 <div class="card">
   <div class="card-header">
@@ -364,7 +357,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 
 <div class="card">
   <div class="card-header">
-    <div class="card-title">⚡ Execute SoDEX Order (Real EIP-712)</div>
+    <div class="card-title">⚡ Execute SoDEX Order (EIP-712)</div>
     <div class="card-badge">TESTNET</div>
   </div>
   <div style="margin-bottom:10px;font-size:0.85rem">Wallet: <span id="wallet-addr" style="color:var(--accent)">Not connected</span></div>
@@ -388,10 +381,10 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 <div class="card">
   <div class="card-header">
     <div class="card-title">💬 AI Analyst Chat</div>
-    <div class="card-badge">GROQ</div>
+    <div class="card-badge">GPT-OSS</div>
   </div>
   <div class="chat-container" id="chat">
-    <div class="chat-msg ai">Hi! I am your AI crypto analyst powered by SoSoValue data. Ask me anything about ETF flows, SSI sectors, or trading signals.</div>
+    <div class="chat-msg ai">Hi! I am your AI crypto analyst. Ask me anything about ETF flows, SSI sectors, or trading signals.</div>
   </div>
   <div class="chat-input">
     <input type="text" id="chat-input" placeholder="Ask about BTC, ETFs, or market signals..." onkeypress="if(event.key==='Enter')sendChat()">
@@ -408,7 +401,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
 </div>
 
 <footer style="text-align:center;padding:24px;color:var(--muted);font-size:0.8rem;border-top:1px solid var(--border);margin-top:24px">
-  <p>OnchainEdge v2.1 - Built with SoSoValue + Groq AI</p>
+  <p>OnchainEdge v2.2 - Built with SoSoValue + Groq AI</p>
 </footer>
 
 </div>
@@ -421,7 +414,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
         <div class="num">1</div>
         <div>
           <div class="step-title">Connect MetaMask</div>
-          <div class="step-desc">Connect your master wallet to ValueChain Testnet</div>
+          <div class="step-desc">Connect your master wallet (switch to ValueChain Testnet)</div>
           <button class="btn btn-primary" style="margin-top:8px" onclick="step1Connect()">Connect MetaMask</button>
           <div id="step-1-result" style="margin-top:8px;font-size:0.8rem"></div>
         </div>
@@ -439,7 +432,7 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
         <div class="num">3</div>
         <div>
           <div class="step-title">Generate API Key</div>
-          <div class="step-desc">Create a new EVM keypair for trading</div>
+          <div class="step-desc">Create a new EVM keypair for trading (generated in your browser)</div>
           <button class="btn btn-primary" style="margin-top:8px" onclick="step3GenerateKey()" id="step-3-btn" disabled>Generate Key</button>
           <div id="step-3-result" style="margin-top:8px;font-size:0.8rem"></div>
         </div>
@@ -466,90 +459,56 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
 <script>
-// === FIXED: Added missing functions ===
-
-// Save signal to audit trail (history API)
-async function saveSignalToAudit(result, asset) {
-  try {
-    const signal = {
-      asset: asset || 'BTC',
-      signal: result.signal,
-      confidence: result.confidence,
-      timestamp: Date.now(),
-      entryPrice: result.entryPrice || 0,
-      etfFlow: result.etfFlow || 0,
-      pulseScore: result.pulseScore || 0
-    };
-    await fetch('/api/history?action=add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(signal)
-    });
-  } catch (e) {
-    console.error('saveSignalToAudit failed:', e.message);
-  }
-}
-
-// Load signal audit trail
-async function loadSignalAudit() {
-  try {
-    const panel = document.getElementById('audit-panel');
-    if (!panel) return;
-    panel.innerHTML = '<div style="color:var(--muted)">Loading...</div>';
-    const r = await fetch('/api/history?action=get&asset=' + (window.currentAsset || 'BTC'));
-    const data = await r.json();
-    if (!data.ok || !data.signals || data.signals.length === 0) {
-      panel.innerHTML = '<div style="color:var(--muted)">No signals yet. Generate a signal first.</div>';
-      return;
-    }
-    let html = '';
-    for (const sig of data.signals.slice(0, 10)) {
-      const color = sig.signal === 'BUY' ? 'var(--success)' : sig.signal === 'SELL' ? 'var(--danger)' : 'var(--muted)';
-      html += '<div style="display:flex;justify-content:space-between;padding:8px;background:var(--card2);border-radius:8px;margin-bottom:6px">' +
-        '<span><b style="color:' + color + '">' + sig.signal + '</b> <span style="color:var(--muted);font-size:0.8rem">' + (sig.asset || 'BTC') + '</span></span>' +
-        '<span style="color:var(--accent);font-weight:700">' + (sig.confidence || 50) + '%</span></div>';
-    }
-    panel.innerHTML = html;
-  } catch (e) {
-    const panel = document.getElementById('audit-panel');
-    if (panel) panel.innerHTML = '<div class="error-msg">Audit load failed: ' + e.message + '</div>';
-  }
-}
-
-// === END FIXES ===
-
-
-
+// ───────────────────────── state (declared first: no TDZ surprises) ─────────────────────────
 let currentAsset = "BTC";
 let walletAddress = null;
 let accountID = null;
 let apiKeyPair = null;
 let preparedOrder = null;
 let wsConnection = null;
+let lastETF = null;
+let lastSSI = null;
 const logs = [];
+const livePrices = {};            // 'BTC' -> number (from SoDEX / SSE)
+const PAPER_KEY = 'onchainedge_paper_v2';
+let paperBalance = 10000;
+let paperTrades = [];
+let paperPositions = {};
+
+try { const k = sessionStorage.getItem('oe_apikey'); if (k) apiKeyPair = JSON.parse(k); } catch (e) {}
+
+// ───────────────────────── helpers ─────────────────────────
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = id => document.getElementById(id);
+
+function setDot(id, state) {
+  const el = $(id);
+  if (!el) return;
+  el.classList.remove('offline', 'warn');
+  if (state === false) el.classList.add('offline');
+  else if (state === 'warn') el.classList.add('warn');
+}
 
 function log(msg) {
   const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
   logs.push(line);
   if (logs.length > 100) logs.shift();
-  const el = document.getElementById("sys-logs");
-  if (el) el.innerHTML = logs.map(l => '<div class="log-line">' + l + "</div>").join("");
+  const el = $("sys-logs");
+  if (el) el.innerHTML = logs.map(l => '<div class="log-line">' + esc(l) + "</div>").join("");
   console.log(line);
 }
+function clearLogs() { logs.length = 0; $("sys-logs").innerHTML = ""; }
 
-function clearLogs() {
-  logs.length = 0;
-  document.getElementById("sys-logs").innerHTML = "";
-}
-
+// ───────────────────────── wallet + API key setup ─────────────────────────
 async function connectWallet() {
   log("Connecting wallet...");
   if (!window.ethereum) { alert("MetaMask not detected"); log("MetaMask not found"); return; }
   try {
     const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
     walletAddress = accounts[0];
-    document.getElementById("wallet-addr").textContent = walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
+    $("wallet-addr").textContent = walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
     log("Wallet connected: " + walletAddress);
     try {
       await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x21D45", chainName: "ValueChain Testnet", rpcUrls: ["https://testnet-rpc.sodex.dev"], nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 }, blockExplorerUrls: ["https://testnet.sodex.com"] }] });
@@ -558,20 +517,20 @@ async function connectWallet() {
   } catch (e) { log("Wallet failed: " + e.message); alert("Failed: " + e.message); }
 }
 
-function openSetup() { document.getElementById("setup-modal").classList.add("active"); log("Setup opened"); }
-function closeSetup() { document.getElementById("setup-modal").classList.remove("active"); }
-function setStepActive(n) { for (let i = 1; i <= 5; i++) document.getElementById("step-" + i).classList.toggle("active", i === n); }
+function openSetup() { $("setup-modal").classList.add("active"); log("Setup opened"); }
+function closeSetup() { $("setup-modal").classList.remove("active"); }
+function setStepActive(n) { for (let i = 1; i <= 5; i++) $("step-" + i).classList.toggle("active", i === n); }
 
 async function step1Connect() {
   log("Step 1: Connecting...");
-  if (!window.ethereum) { document.getElementById("step-1-result").innerHTML = '<span style="color:var(--danger)">MetaMask not installed</span>'; return; }
+  if (!window.ethereum) { $("step-1-result").innerHTML = '<span style="color:var(--danger)">MetaMask not installed</span>'; return; }
   try {
     const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
     walletAddress = accounts[0];
-    document.getElementById("step-1-result").innerHTML = '<span style="color:var(--success)">Connected: ' + walletAddress.slice(0, 10) + "...</span>";
-    document.getElementById("step-2-btn").disabled = false;
+    $("step-1-result").innerHTML = '<span style="color:var(--success)">Connected: ' + esc(walletAddress.slice(0, 10)) + "...</span>";
+    $("step-2-btn").disabled = false;
     setStepActive(2); log("Step 1 done");
-  } catch (e) { document.getElementById("step-1-result").innerHTML = '<span style="color:var(--danger)">' + e.message + "</span>"; log("Step 1 failed: " + e.message); }
+  } catch (e) { $("step-1-result").innerHTML = '<span style="color:var(--danger)">' + esc(e.message) + "</span>"; log("Step 1 failed: " + e.message); }
 }
 
 async function step2GetAccount() {
@@ -581,45 +540,65 @@ async function step2GetAccount() {
     const data = await r.json();
     if (data.ok && data.accountID) {
       accountID = data.accountID;
-      document.getElementById("step-2-result").innerHTML = '<span style="color:var(--success)">Account ID: ' + accountID + "</span>";
-      document.getElementById("step-3-btn").disabled = false;
+      $("step-2-result").innerHTML = '<span style="color:var(--success)">Account ID: ' + esc(accountID) + "</span>";
+      $("step-3-btn").disabled = false;
       setStepActive(3); log("Step 2 done: " + accountID);
     } else {
-      document.getElementById("step-2-result").innerHTML = '<span style="color:var(--warn)">' + (data.message || "No account found") + "</span>";
+      $("step-2-result").innerHTML = '<span style="color:var(--warn)">' + esc(data.message || data.error || "No account found") + "</span>";
       log("Step 2: No account");
     }
-  } catch (e) { document.getElementById("step-2-result").innerHTML = '<span style="color:var(--danger)">' + e.message + "</span>"; log("Step 2 failed: " + e.message); }
+  } catch (e) { $("step-2-result").innerHTML = '<span style="color:var(--danger)">' + esc(e.message) + "</span>"; log("Step 2 failed: " + e.message); }
 }
 
+// FIX: previous version produced two UNRELATED random byte strings (not a keypair) and showed only 10 chars of the private key.
 async function step3GenerateKey() {
   log("Step 3: Generating key...");
   try {
-    const privArray = new Uint8Array(32);
-    const pubArray = new Uint8Array(32);
-    crypto.getRandomValues(privArray);
-    crypto.getRandomValues(pubArray);
-    const privateKey = "0x" + Array.from(privArray).map(b => b.toString(16).padStart(2, "0")).join("");
-    const publicKey = "0x" + Array.from(pubArray).map(b => b.toString(16).padStart(2, "0")).join("");
-    apiKeyPair = { privateKey: privateKey, publicKey: publicKey, keyName: "api-key-" + Date.now().toString(36) };
-    document.getElementById("step-3-result").innerHTML = '<div style="color:var(--success)">Key: ' + apiKeyPair.keyName + '</div><div style="font-size:0.7rem;margin-top:4px;word-break:break-all;background:var(--bg);padding:6px;border-radius:6px"><b>Public:</b> ' + apiKeyPair.publicKey.slice(0, 20) + '...<br><b>Private:</b> <span style="color:var(--danger)">' + apiKeyPair.privateKey.slice(0, 10) + '... (SAVE!)</span></div>';
-    document.getElementById("step-4-btn").disabled = false;
+    if (!window.ethers) throw new Error("ethers.js failed to load (check connection)");
+    const w = ethers.Wallet.createRandom();
+    apiKeyPair = { privateKey: w.privateKey, publicKey: w.address, keyName: "api-key-" + Date.now().toString(36) };
+    sessionStorage.setItem('oe_apikey', JSON.stringify(apiKeyPair));
+    $("step-3-result").innerHTML =
+      '<div style="color:var(--success)">Key: ' + esc(apiKeyPair.keyName) + '</div>' +
+      '<div style="font-size:0.7rem;margin-top:4px;word-break:break-all;background:var(--bg);padding:6px;border-radius:6px">' +
+      '<b>Address:</b> ' + esc(apiKeyPair.publicKey) + '<br><b>Private key (copy NOW, shown once):</b><br>' +
+      '<span style="color:var(--danger)" id="pk-full">' + esc(apiKeyPair.privateKey) + '</span></div>' +
+      '<button class="btn" style="margin-top:6px;font-size:0.75rem;padding:4px 10px" onclick="navigator.clipboard.writeText(apiKeyPair.privateKey);log(\'Private key copied\')">Copy private key</button>';
+    $("step-4-btn").disabled = false;
     setStepActive(4); log("Step 3 done");
-  } catch (e) { document.getElementById("step-3-result").innerHTML = '<span style="color:var(--danger)">' + e.message + "</span>"; log("Step 3 failed: " + e.message); }
+  } catch (e) { $("step-3-result").innerHTML = '<span style="color:var(--danger)">' + esc(e.message) + "</span>"; log("Step 3 failed: " + e.message); }
 }
 
+// FIX: backend needs accountID/keyName/keyPublicKey/masterSign/masterNonce in the body; old code sent {params,...}. Also 0x02 prefix per backend instructions.
 async function step4SignRegister() {
   log("Step 4: Signing...");
-  if (!window.ethereum || !walletAddress) { document.getElementById("step-4-result").innerHTML = '<span style="color:var(--danger)">Wallet not connected</span>'; return; }
+  if (!window.ethereum || !walletAddress) { $("step-4-result").innerHTML = '<span style="color:var(--danger)">Wallet not connected</span>'; return; }
   try {
-    const prepare = await fetch("/api/setup?action=prepare-add-key&testnet=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountID: accountID, keyName: apiKeyPair.keyName, keyPublicKey: apiKeyPair.publicKey }) });
+    const prepare = await fetch("/api/setup?action=prepare-add-key&testnet=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountID, keyName: apiKeyPair.keyName, keyPublicKey: apiKeyPair.publicKey }) });
     const prepData = await prepare.json();
     if (!prepData.ok) throw new Error(prepData.error || "Prepare failed");
-    const signature = await window.ethereum.request({ method: "eth_signTypedData_v4", params: [walletAddress, JSON.stringify(prepData)] });
-    const submit = await fetch("/api/setup?action=submit-add-key&testnet=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ params: prepData.message, masterSign: signature, masterNonce: prepData.message.nonce }) });
+    const typedData = { types: prepData.types, domain: prepData.domain, primaryType: prepData.primaryType, message: prepData.message };
+    const sig = await window.ethereum.request({ method: "eth_signTypedData_v4", params: [walletAddress, JSON.stringify(typedData)] });
+    const masterSign = "0x02" + sig.slice(2);
+    const submit = await fetch("/api/setup?action=submit-add-key&testnet=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountID, keyName: apiKeyPair.keyName, keyPublicKey: apiKeyPair.publicKey, masterSign, masterNonce: prepData.nonce }) });
     const subData = await submit.json();
-    if (subData.ok) { document.getElementById("step-4-result").innerHTML = '<span style="color:var(--success)">Registered!</span>'; setStepActive(5); log("Step 4 done"); }
-    else throw new Error(subData.error || "Registration failed");
-  } catch (e) { document.getElementById("step-4-result").innerHTML = '<span style="color:var(--danger)">' + e.message + "</span>"; log("Step 4 failed: " + e.message); }
+    if (subData.ok) {
+      $("step-4-result").innerHTML = '<span style="color:var(--success)">Registered!</span>';
+      $("trade-keyname").value = apiKeyPair.keyName;
+      $("trade-accountid").value = accountID;
+      setStepActive(5); log("Step 4 done");
+    } else throw new Error(subData.error || "Registration failed");
+  } catch (e) { $("step-4-result").innerHTML = '<span style="color:var(--danger)">' + esc(e.message) + "</span>"; log("Step 4 failed: " + e.message); }
+}
+
+// ───────────────────────── prices (single SoDEX fetch feeds prices + markets + paper trading) ─────────────────────────
+function renderMarkets(items) {
+  let html = '<div style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto">';
+  for (const item of items.slice(0, 15)) {
+    const ch = parseFloat(item.priceChange);
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--card2);border-radius:10px"><div><div style="font-weight:700">' + esc(item.symbol) + '</div><div class="mini">' + esc(item.source) + '</div></div><div style="text-align:right"><div style="font-weight:800">$' + parseFloat(item.lastPrice).toLocaleString() + '</div><div class="' + (ch >= 0 ? "up" : "down") + '" style="font-size:0.8rem;font-weight:700">' + (ch >= 0 ? "+" : "") + esc(item.priceChange) + "%</div></div></div>";
+  }
+  $("sodex-markets").innerHTML = html + "</div>";
 }
 
 async function loadPrices() {
@@ -628,19 +607,23 @@ async function loadPrices() {
     const data = await r.json();
     if (!data.ok) throw new Error(data.error);
     const targets = { "BTC/USDC": "BTC", "ETH/USDC": "ETH", "SOL/USDC": "SOL", "BNB/USDC": "BNB" };
-    const container = document.getElementById("prices");
-    container.innerHTML = "";
+    const container = $("prices");
+    let html = "";
     for (const item of data.data) {
       const sym = targets[item.symbol];
       if (!sym) continue;
+      const price = parseFloat(item.lastPrice);
       const ch = parseFloat(item.priceChange);
-      const chClass = ch >= 0 ? "up" : "down";
-      const chSign = ch >= 0 ? "+" : "";
-      container.innerHTML += '<div class="price-card"><div class="sym">' + sym + '</div><div class="price">$' + parseFloat(item.lastPrice).toLocaleString() + '</div><div class="change ' + chClass + '">' + chSign + ch.toFixed(2) + '%</div><div class="source">' + item.source + "</div></div>";
+      if (item.source !== 'static') livePrices[sym] = price;
+      html += '<div class="price-card"><div class="sym">' + sym + '</div><div class="price">$' + price.toLocaleString() + '</div><div class="change ' + (ch >= 0 ? "up" : "down") + '">' + (ch >= 0 ? "+" : "") + ch.toFixed(2) + '%</div><div class="source">' + esc(item.source) + "</div></div>";
     }
-    document.getElementById("price-badge").textContent = data.source.toUpperCase();
-    log("Prices loaded");
-  } catch (e) { log("Prices error: " + e.message); }
+    container.innerHTML = html;
+    $("price-badge").textContent = data.source.toUpperCase();
+    renderMarkets(data.data);
+    setDot('live-dot', data.source === 'static' ? 'warn' : true);
+    fillPaperPrice();
+    log("Prices loaded (" + data.source + ")");
+  } catch (e) { setDot('live-dot', false); log("Prices error: " + e.message); }
 }
 
 async function loadFearGreed() {
@@ -650,117 +633,69 @@ async function loadFearGreed() {
     if (data.data && data.data[0]) {
       const fg = data.data[0];
       const value = parseInt(fg.value);
-      document.getElementById("fg-value").textContent = value;
-      document.getElementById("fg-text").textContent = fg.value_classification;
-      const deg = -90 + (value / 100) * 180;
-      document.getElementById("fg-needle").style.transform = "translateX(-50%) rotate(" + deg + "deg)";
+      $("fg-value").textContent = value;
+      $("fg-text").textContent = fg.value_classification;
+      $("fg-needle").style.transform = "translateX(-50%) rotate(" + (-90 + (value / 100) * 180) + "deg)";
       log("Fear & Greed: " + value);
     }
-  } catch (e) { log("F&G error: " + e.message); document.getElementById("fg-text").textContent = "Unavailable"; }
+  } catch (e) { log("F&G error: " + e.message); $("fg-text").textContent = "Unavailable"; }
 }
 
+// ───────────────────────── ETF (FIX: no fabricated "Estimated" flows, no junk regex parser) ─────────────────────────
 async function loadETF() {
-  let etfData = null;
-  let sourceName = 'SoSoValue';
-
-  // Try SoSoValue first
   try {
     const r = await fetch("/api/soso?type=etf-flows");
     const data = await r.json();
-    if (data.ok && data.data) {
-      etfData = data.data;
+    if (!data.ok || !data.data || !data.data.etfs) throw new Error(data.error || "no data");
+    const d = data.data;
+    lastETF = d;
+    const total = d.totalNet || 0;
+    const cls = total >= 0 ? "in" : "out";
+    const note = [data.source, d.date, data.stale ? "cached - source unreachable" : null].filter(Boolean).join(" · ");
+    $("etf-total").innerHTML = 'Total Net Inflow <span class="' + cls + '">' + (total >= 0 ? "+" : "-") + "$" + (Math.abs(total) / 1e6).toFixed(2) + "M</span> <span class='mini'>(" + esc(note) + ")</span>";
+    let html = "";
+    for (const etf of d.etfs.slice(0, 12)) {
+      const v = etf.netInflow || 0;
+      html += '<div class="etf-card"><div class="ticker">' + esc(etf.ticker) + '</div><div class="name">' + esc(etf.name || etf.ticker) + '</div><div class="flow ' + (v >= 0 ? "in" : "out") + '">' + (v >= 0 ? "+" : "-") + "$" + (Math.abs(v) / 1e6).toFixed(2) + "M</div></div>";
     }
-  } catch (e) { log("SoSoValue ETF failed: " + e.message); }
-
-  // Fallback: try to fetch from Farside Investors via CORS proxy or use cached/estimated data
-  if (!etfData || !etfData.etfs || etfData.etfs.length < 3) {
-    try {
-      const r = await fetch("https://api.allorigins.win/raw?url=https://farside.co.uk/btc/");
-      const html = await r.text();
-      const parsed = parseFarsideETF(html);
-      if (parsed && parsed.etfs.length > 0) {
-        etfData = parsed;
-        sourceName = 'Farside Live';
-      }
-    } catch (e) { log("Farside ETF fallback failed: " + e.message); }
+    $("etfs").innerHTML = html;
+    $("etf-source").textContent = "Source: Farside Investors" + (data.stale ? " (cached copy, live fetch failed)" : " (live)") + " · flows for " + d.date;
+    const pe = $("pulse-etf");
+    pe.textContent = (total >= 0 ? "+" : "-") + "$" + (Math.abs(total) / 1e6).toFixed(1) + "M";
+    pe.style.color = total >= 0 ? "var(--success)" : "var(--danger)";
+    log("ETF loaded: " + data.source);
+  } catch (e) {
+    lastETF = null;
+    $("etf-total").textContent = "ETF data unavailable";
+    $("etfs").innerHTML = '<div class="error-msg" style="grid-column:1/-1">ETF source unreachable. No data shown rather than fake data.</div>';
+    $("pulse-etf").textContent = "--";
+    log("ETF error: " + e.message);
   }
-
-  // Final fallback: use reasonable estimates based on market sentiment
-  if (!etfData || !etfData.etfs || etfData.etfs.length < 3) {
-    etfData = getEstimatedETFFlows();
-    sourceName = 'Estimated';
-  }
-
-  try {
-    const total = etfData.totalNet || etfData.etfs.reduce((a, b) => a + (b.netInflow || 0), 0);
-    const totalEl = document.getElementById("etf-total");
-    const sign = total >= 0 ? "+" : "";
-    const color = total >= 0 ? "in" : "out";
-    totalEl.innerHTML = 'Total Net Inflow <span class="' + color + '">' + sign + "$" + (Math.abs(total) / 1e6).toFixed(2) + "M</span> <span style='font-size:0.7rem;color:var(--muted)'>(" + sourceName + ")</span>";
-    totalEl.className = "etf-total " + color;
-    const container = document.getElementById("etfs");
-    container.innerHTML = "";
-    for (const etf of etfData.etfs.slice(0, 12)) {
-      const sign = (etf.netInflow || 0) >= 0 ? "+" : "";
-      const color = (etf.netInflow || 0) >= 0 ? "in" : "out";
-      const flow = Math.abs(etf.netInflow || 0);
-      container.innerHTML += '<div class="etf-card"><div class="ticker">' + etf.ticker + '</div><div class="name">' + (etf.name || etf.ticker) + '</div><div class="flow ' + color + '">' + sign + "$" + (flow / 1e6).toFixed(2) + "M</div></div>";
-    }
-    log("ETF loaded from " + sourceName);
-  } catch (e) { log("ETF error: " + e.message); document.getElementById("etfs").innerHTML = '<div class="error-msg">ETF data unavailable</div>'; }
 }
 
-function parseFarsideETF(html) {
-  // Simple regex parser for Farside HTML table
-  const etfs = [];
-  const tickerMap = { 'IBIT': 'iShares', 'FBTC': 'Fidelity', 'ARKB': 'ARK 21Shares', 'BITB': 'Bitwise', 'GBTC': 'Grayscale', 'HODL': 'VanEck', 'BTCO': 'Invesco', 'EZBC': 'Franklin', 'BRRR': 'Valkyrie' };
-  let totalNet = 0;
-  for (const [ticker, name] of Object.entries(tickerMap)) {
-    const regex = new RegExp(ticker + '.*?([+-]?[0-9,]+\.?[0-9]*)', 'i');
-    const match = html.match(regex);
-    if (match) {
-      const val = parseFloat(match[1].replace(/,/g, '')) * 1e6;
-      if (!isNaN(val)) {
-        etfs.push({ ticker, name, netInflow: val });
-        totalNet += val;
-      }
-    }
-  }
-  return etfs.length > 0 ? { etfs, totalNet } : null;
-}
-
-function getEstimatedETFFlows() {
-  // Use market pulse data to estimate flows when no live source available
-  const etfs = [
-    { ticker: 'IBIT', name: 'iShares Bitcoin Trust', netInflow: 250000000 },
-    { ticker: 'FBTC', name: 'Fidelity Wise Origin', netInflow: 120000000 },
-    { ticker: 'ARKB', name: 'ARK 21Shares', netInflow: 45000000 },
-    { ticker: 'BITB', name: 'Bitwise Bitcoin ETF', netInflow: 30000000 },
-    { ticker: 'GBTC', name: 'Grayscale Bitcoin Trust', netInflow: -80000000 },
-    { ticker: 'HODL', name: 'VanEck Bitcoin ETF', netInflow: 15000000 },
-    { ticker: 'BTCO', name: 'Invesco Galaxy', netInflow: 20000000 },
-    { ticker: 'EZBC', name: 'Franklin Templeton', netInflow: 5000000 }
-  ];
-  const totalNet = etfs.reduce((a, b) => a + b.netInflow, 0);
-  return { etfs, totalNet };
-}
-
+// ───────────────────────── SSI / treasury / stocks ─────────────────────────
 async function loadSSI() {
   try {
     const r = await fetch("/api/soso?type=sector");
     const data = await r.json();
     if (!data.ok) throw new Error(data.error);
-    document.getElementById("ssi-count").textContent = data.successCount + "/" + data.data.length;
-    document.getElementById("ssi-count").style.color = "var(--success)";
-    const container = document.getElementById("ssi");
-    container.innerHTML = "";
+    lastSSI = data.data;
+    const sample = data.source === 'Cached';
+    const cnt = $("ssi-count");
+    cnt.textContent = sample ? "sample data (SoSoValue unreachable)" : (data.successCount ?? data.data.length) + "/" + data.data.length;
+    cnt.style.color = sample ? "var(--warn)" : "var(--success)";
+    setDot('soso-dot', sample ? 'warn' : true);
+    let html = "";
     for (const s of data.data) {
-      const chClass = s.ch >= 0 ? "up" : "down";
-      const chSign = s.ch >= 0 ? "+" : "";
-      container.innerHTML += '<div class="ssi-item"><div class="info"><div class="name">' + s.d + '</div><div class="desc">' + s.name + " · L:" + s.l + " S:" + s.s + '</div></div><div style="display:flex;align-items:center"><div class="price">$' + s.p.toFixed(2) + '</div><div class="ch ' + chClass + '">' + chSign + s.ch.toFixed(2) + '%</div><div class="sig sig-' + s.sig + '">' + s.sig + "</div></div></div>";
+      html += '<div class="ssi-item"><div class="info"><div class="name">' + esc(s.d) + '</div><div class="desc">' + esc(s.name) + " · L:" + s.l + " S:" + s.s + '</div></div><div style="display:flex;align-items:center"><div class="price">$' + s.p.toFixed(2) + '</div><div class="ch ' + (s.ch >= 0 ? "up" : "down") + '">' + (s.ch >= 0 ? "+" : "") + s.ch.toFixed(2) + '%</div><div class="sig sig-' + esc(s.sig) + '">' + esc(s.sig) + "</div></div></div>";
     }
-    log("SSI loaded: " + data.successCount);
-  } catch (e) { log("SSI error: " + e.message); document.getElementById("ssi").innerHTML = '<div class="error-msg">SSI API error</div>'; }
+    $("ssi").innerHTML = html;
+    if (data.data.length > 0 && !sample) {
+      const top = [...data.data].sort((a, b) => b.ch - a.ch)[0];
+      $("pulse-ssi").textContent = top.d + " " + (top.ch >= 0 ? "+" : "") + top.ch.toFixed(1) + "%";
+    } else { $("pulse-ssi").textContent = "--"; }
+    log("SSI loaded" + (sample ? " (sample)" : ""));
+  } catch (e) { lastSSI = null; setDot('soso-dot', false); log("SSI error: " + e.message); $("ssi").innerHTML = '<div class="error-msg">SSI API error</div>'; }
 }
 
 async function loadTreasury() {
@@ -768,13 +703,12 @@ async function loadTreasury() {
     const r = await fetch("/api/soso?type=treasury");
     const data = await r.json();
     if (!data.ok) throw new Error(data.error);
-    const container = document.getElementById("treasury");
     let html = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">';
-    for (const co of data.data) html += '<div style="padding:10px;background:var(--card2);border-radius:10px"><div style="font-weight:700">' + co.name + '</div><div style="font-size:0.8rem;color:var(--muted)">' + co.ticker + '</div><div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-top:4px">' + co.btc.toLocaleString() + " BTC</div></div>";
-    html += "</div>";
-    container.innerHTML = html;
+    for (const co of data.data) html += '<div style="padding:10px;background:var(--card2);border-radius:10px"><div style="font-weight:700">' + esc(co.name) + '</div><div class="mini">' + esc(co.ticker) + '</div><div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-top:4px">' + co.btc.toLocaleString() + " BTC</div></div>";
+    $("treasury").innerHTML = html + "</div>";
+    if (data.data.length > 0) { const top = data.data[0]; $("pulse-treasury").textContent = top.name + " " + (top.btc / 1000).toFixed(0) + "K BTC"; }
     log("Treasury loaded");
-  } catch (e) { log("Treasury error: " + e.message); document.getElementById("treasury").innerHTML = '<div class="error-msg">Treasury unavailable</div>'; }
+  } catch (e) { log("Treasury error: " + e.message); $("treasury").innerHTML = '<div class="error-msg">Treasury unavailable</div>'; }
 }
 
 async function loadStocks() {
@@ -782,35 +716,13 @@ async function loadStocks() {
     const r = await fetch("/api/soso?type=crypto-stocks");
     const data = await r.json();
     if (!data.ok) throw new Error(data.error);
-    const container = document.getElementById("stocks");
     let html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">';
     for (const s of data.data) {
-      const chClass = s.ch >= 0 ? "up" : "down";
-      const chSign = s.ch >= 0 ? "+" : "";
-      html += '<div style="padding:10px;background:var(--card2);border-radius:10px;text-align:center"><div style="font-weight:800;font-size:1.1rem">' + s.tick + '</div><div style="font-size:0.75rem;color:var(--muted)">' + s.ex + '</div><div style="font-size:1.2rem;font-weight:800;margin-top:4px">$' + s.p.toFixed(2) + '</div><div class="' + chClass + '" style="font-size:0.85rem;font-weight:700">' + chSign + s.ch.toFixed(2) + "%</div></div>";
+      html += '<div style="padding:10px;background:var(--card2);border-radius:10px;text-align:center"><div style="font-weight:800;font-size:1.1rem">' + esc(s.tick) + '</div><div class="mini">' + esc(s.ex) + '</div><div style="font-size:1.2rem;font-weight:800;margin-top:4px">$' + s.p.toFixed(2) + '</div><div class="' + (s.ch >= 0 ? "up" : "down") + '" style="font-size:0.85rem;font-weight:700">' + (s.ch >= 0 ? "+" : "") + s.ch.toFixed(2) + "%</div></div>";
     }
-    html += "</div>";
-    container.innerHTML = html;
+    $("stocks").innerHTML = html + "</div>";
     log("Stocks loaded");
-  } catch (e) { log("Stocks error: " + e.message); document.getElementById("stocks").innerHTML = '<div class="error-msg">Stocks unavailable</div>'; }
-}
-
-async function loadSoDEXMarkets() {
-  try {
-    const r = await fetch("/api/sodex");
-    const data = await r.json();
-    if (!data.ok) throw new Error(data.error);
-    const container = document.getElementById("sodex-markets");
-    let html = '<div style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto">';
-    for (const item of data.data.slice(0, 15)) {
-      const chClass = parseFloat(item.priceChange) >= 0 ? "up" : "down";
-      const chSign = parseFloat(item.priceChange) >= 0 ? "+" : "";
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--card2);border-radius:10px"><div><div style="font-weight:700">' + item.symbol + '</div><div style="font-size:0.7rem;color:var(--muted">' + item.source + '</div></div><div style="text-align:right"><div style="font-weight:800">$' + parseFloat(item.lastPrice).toLocaleString() + '</div><div class="' + chClass + '" style="font-size:0.8rem;font-weight:700">' + chSign + item.priceChange + "%</div></div></div>";
-    }
-    html += "</div>";
-    container.innerHTML = html;
-    log("SoDEX loaded");
-  } catch (e) { log("SoDEX error: " + e.message); }
+  } catch (e) { log("Stocks error: " + e.message); $("stocks").innerHTML = '<div class="error-msg">Stocks unavailable</div>'; }
 }
 
 async function loadNews() {
@@ -818,46 +730,66 @@ async function loadNews() {
     const r = await fetch("/api/news");
     const data = await r.json();
     if (!data.ok) throw new Error(data.error);
-    const container = document.getElementById("news");
-    container.innerHTML = "";
-    for (const article of data.articles.slice(0, 8)) {
-      const date = new Date(article.pubDate).toLocaleDateString();
-      container.innerHTML += '<div class="news-item"><div class="title">' + article.title + '</div><div class="meta"><span>' + article.source + "</span><span>" + date + "</span></div>" + (article.summary ? '<div class="summary">' + article.summary + "</div>" : "") + "</div>";
+    let html = "";
+    for (const a of data.articles.slice(0, 8)) {
+      html += '<div class="news-item"><div class="title">' + esc(a.title) + '</div><div class="meta"><span>' + esc(a.source) + "</span><span>" + esc(new Date(a.pubDate).toLocaleDateString()) + "</span></div>" + (a.summary ? '<div class="summary">' + esc(a.summary) + "</div>" : "") + "</div>";
     }
+    $("news").innerHTML = html;
     log("News loaded");
   } catch (e) { log("News error: " + e.message); }
 }
 
+// ───────────────────────── AI signals ─────────────────────────
 function setAsset(asset) {
   currentAsset = asset;
   document.querySelectorAll(".tab").forEach((t, i) => t.classList.toggle("active", ["BTC", "ETH", "SOL", "BNB"][i] === asset));
 }
 
 async function loadSignals() {
-  const btn = document.getElementById("load-sig-btn");
+  const btn = $("load-sig-btn");
   btn.textContent = "⏳ Generating...";
   btn.disabled = true;
-  log("Signal for " + currentAsset);
+  const asset = currentAsset;
+  log("Signal for " + asset);
   try {
-    const [prices, etf, ssi] = await Promise.all([fetch("/api/soso?type=prices").then(r => r.json()), fetch("/api/soso?type=etf-flows").then(r => r.json()), fetch("/api/soso?type=sector").then(r => r.json())]);
-    const priceData = prices.data?.[currentAsset] || {};
-    const etfTotal = etf.data?.totalNet || 0;
-    const topSSI = ssi.data?.sort((a, b) => Math.abs(b.ch) - Math.abs(a.ch))[0] || {};
-    const prompt = "Asset: " + currentAsset + "\nPrice: $" + (priceData.spot || "N/A") + " (" + (priceData.ch >= 0 ? "+" : "") + (priceData.ch || 0) + "% 24h)\nETF Net Flow: $" + (etfTotal / 1e6).toFixed(1) + "M\nTop SSI: " + (topSSI.d || "N/A") + " (" + (topSSI.ch >= 0 ? "+" : "") + (topSSI.ch || 0).toFixed(2) + "%)\nVolume: " + (priceData.vol || "N/A");
-    const r = await fetch("/api/signal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, mode: "signal", asset: currentAsset, price: priceData.spot, etfFlow: etfTotal }) });
+    // FIX: price comes from SoDEX (live). The old code used soso?type=prices, which serves HARDCODED prices on failure,
+    // and that hardcoded number was stored as the signal's entry price and then graded against real prices.
+    let price = 0, ch = 0, vol = "N/A";
+    try {
+      const sx = await fetch("/api/sodex").then(r => r.json());
+      const item = sx.data && sx.data.find(i => i.symbol === asset + "/USDC");
+      if (item && item.source !== "static") { price = parseFloat(item.lastPrice); ch = parseFloat(item.priceChange); vol = "$" + Number(item.quoteVolume).toLocaleString(); }
+    } catch (e) {}
+    if (!price && livePrices[asset]) price = livePrices[asset];
+
+    const etfLine = lastETF ? "$" + (lastETF.totalNet / 1e6).toFixed(1) + "M (" + lastETF.date + ")" : "unavailable";
+    const top = lastSSI && lastSSI.length ? [...lastSSI].sort((a, b) => Math.abs(b.ch) - Math.abs(a.ch))[0] : null;
+    const ssiLine = top ? top.d + " (" + (top.ch >= 0 ? "+" : "") + top.ch.toFixed(2) + "%)" : "N/A";
+    const prompt = "Asset: " + asset + "\nPrice: " + (price ? "$" + price : "N/A") + " (" + (ch >= 0 ? "+" : "") + ch.toFixed(2) + "% 24h)\nETF Net Flow: " + etfLine + "\nTop SSI: " + ssiLine + "\nVolume: " + vol;
+
+    const r = await fetch("/api/signal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, mode: "signal", asset, price, etfFlow: lastETF ? lastETF.totalNet : 0 }) });
     const data = await r.json();
     if (data.error) throw new Error(data.error);
     const result = JSON.parse(data.result);
-    const sigClass = result.signal;
-    document.getElementById("signal-result").innerHTML = '<div class="signal-result"><div class="sig-text ' + sigClass + '">' + result.signal + '</div><div class="conf">' + result.confidence + '% confidence</div><div class="reasoning">' + result.reasoning + '</div><div class="factors">' + (result.factors || []).map(f => '<span class="factor">' + f + "</span>").join("") + '</div><div class="meta">Risk: ' + result.risk + " | Timeframe: " + result.timeframe + " | Stop: " + result.stop_loss + " | Target: " + result.take_profit + "</div>" + (result.riskCheck ? '<div class="risk-box"><b>Risk Check: ' + result.riskCheck.verdict + "</b> (score: " + result.riskCheck.score + ")<br>Warnings: " + result.riskCheck.warnings.join(", ") + "</div>" : "") + '<div style="margin-top:10px;font-size:0.75rem;color:var(--muted)">Models: ' + result.models_used.join(" + ") + "</div></div>";
-    document.getElementById("pulse-ai").textContent = result.signal + " (" + result.confidence + "%)";
-    const pulseScore = Math.min(100, Math.max(0, result.confidence + (etfTotal > 0 ? 10 : -10) + (topSSI.ch > 0 ? 5 : -5)));
-    document.getElementById("pulse-score").textContent = Math.round(pulseScore);
-    saveSignalToAudit(result, currentAsset);
+    $("signal-result").innerHTML = '<div class="signal-result"><div class="sig-text ' + esc(result.signal) + '">' + esc(result.signal) + '</div><div class="conf">' + result.confidence + '% confidence</div><div class="reasoning">' + esc(result.reasoning) + '</div><div class="factors">' + (result.factors || []).map(f => '<span class="factor">' + esc(f) + "</span>").join("") + '</div><div class="meta">Risk: ' + esc(result.risk) + " | Timeframe: " + esc(result.timeframe) + " | Stop: " + esc(result.stop_loss) + " | Target: " + esc(result.take_profit) + "</div>" + (result.riskCheck ? '<div class="risk-box"><b>Risk Check: ' + esc(result.riskCheck.verdict) + "</b> (score: " + result.riskCheck.score + ")<br>Warnings: " + esc((result.riskCheck.warnings || []).join(", ")) + "</div>" : "") + '<div class="mini" style="margin-top:10px">Models: ' + esc((result.models_used || []).join(" + ")) + "</div></div>";
+    $("pulse-ai").textContent = result.signal + " (" + result.confidence + "%)";
+    const pulseScore = Math.min(100, Math.max(0, result.confidence + (lastETF ? (lastETF.totalNet > 0 ? 10 : -10) : 0) + (top ? (top.ch > 0 ? 5 : -5) : 0)));
+    $("pulse-score").textContent = Math.round(pulseScore);
+    setDot('groq-dot', true);
     log("Signal: " + result.signal + " @ " + result.confidence + "%");
+    // FIX: removed saveSignalToAudit(). /api/signal already persists every signal to Redis; the extra call stored a
+    // DUPLICATE row with entryPrice 0 that double-counted in the backtest.
     loadSignalHistory();
-  } catch (e) { log("Signal error: " + e.message); document.getElementById("signal-result").innerHTML = '<div class="error-msg">Signal failed: ' + e.message + "</div>"; }
+    loadSignalAudit();
+  } catch (e) { setDot('groq-dot', false); log("Signal error: " + e.message); $("signal-result").innerHTML = '<div class="error-msg">Signal failed: ' + esc(e.message) + "</div>"; }
   finally { btn.textContent = "⚡ LOAD SIGNALS"; btn.disabled = false; }
+}
+
+function sigRow(sig) {
+  const color = sig.signal === 'BUY' ? 'var(--success)' : sig.signal === 'SELL' ? 'var(--danger)' : 'var(--muted)';
+  const when = sig.timestamp ? new Date(sig.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  const px = sig.entryPrice > 0 ? ' @ $' + Number(sig.entryPrice).toLocaleString() : '';
+  return '<div class="row"><span><b style="color:' + color + '">' + esc(sig.signal) + '</b> <span class="mini">' + esc(sig.asset || 'BTC') + px + '</span><br><span class="mini">' + esc(when) + '</span></span><span style="color:var(--accent);font-weight:700">' + (sig.confidence || 50) + '%</span></div>';
 }
 
 async function loadSignalHistory() {
@@ -865,336 +797,267 @@ async function loadSignalHistory() {
     const r = await fetch("/api/history?action=get&asset=" + currentAsset);
     const data = await r.json();
     if (!data.ok) return;
-    const container = document.getElementById("signal-history");
-    container.innerHTML = '<h3 style="font-size:1rem;margin-bottom:8px">📜 Signal History</h3>';
-    for (const sig of data.signals.slice(0, 5)) container.innerHTML += '<div style="display:flex;justify-content:space-between;padding:8px;background:var(--card2);border-radius:8px;margin-bottom:6px"><span><b>' + sig.signal + '</b> <span style="color:var(--muted);font-size:0.8rem">' + sig.asset + '</span></span><span style="color:var(--accent);font-weight:700">' + sig.confidence + '%</span></div>';
+    $("signal-history").innerHTML = '<h3 style="font-size:1rem;margin-bottom:8px">📜 Signal History</h3>' + data.signals.slice(0, 5).map(sigRow).join("");
   } catch (e) { log("History error: " + e.message); }
 }
 
+// FIX: old code used window.currentAsset, but `let currentAsset` is NOT a window property -> always undefined -> always BTC.
+async function loadSignalAudit() {
+  const panel = $('audit-panel');
+  try {
+    panel.innerHTML = '<div class="mini">Loading...</div>';
+    const r = await fetch('/api/history?action=get&asset=all');
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'history failed');
+    if (!data.signals || data.signals.length === 0) { panel.innerHTML = '<div class="mini">No signals yet. Generate a signal first.</div>'; return; }
+    panel.innerHTML = data.signals.slice(0, 15).map(sigRow).join('') + '<div class="mini" style="margin-top:6px">' + data.count + ' stored · source: ' + esc(data.source) + (data.redisError ? ' · redis error: ' + esc(data.redisError) : '') + '</div>';
+  } catch (e) { panel.innerHTML = '<div class="error-msg">Audit load failed: ' + esc(e.message) + '</div>'; }
+}
+
+// ───────────────────────── backtest (FIX: matches the real /api/simulate response shape) ─────────────────────────
 async function runBacktest() {
-  const asset = document.getElementById("backtest-asset").value;
-  const days = document.getElementById("backtest-days").value;
+  const asset = $("backtest-asset").value;
+  const days = $("backtest-days").value;
+  const out = $("backtest-result");
+  const btn = $("backtest-btn");
+  btn.disabled = true; btn.textContent = "Running...";
   log("Backtest: " + asset + " / " + days + "d");
   try {
     const r = await fetch("/api/simulate?asset=" + asset + "&days=" + days);
-    const data = await r.json();
-    if (!data.ok) throw new Error(data.error);
-    document.getElementById("backtest-result").innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px"><div style="text-align:center;padding:10px;background:var(--card2);border-radius:10px"><div style="font-size:0.75rem;color:var(--muted)">Win Rate</div><div style="font-size:1.3rem;font-weight:800;color:var(--success)">' + data.summary.winRate + '%</div></div><div style="text-align:center;padding:10px;background:var(--card2);border-radius:10px"><div style="font-size:0.75rem;color:var(--muted)">Total Trades</div><div style="font-size:1.3rem;font-weight:800">' + data.summary.totalTrades + '</div></div><div style="text-align:center;padding:10px;background:var(--card2);border-radius:10px"><div style="font-size:0.75rem;color:var(--muted)">Avg Return</div><div style="font-size:1.3rem;font-weight:800;color:var(--accent)">' + data.summary.avgReturn + '</div></div></div><div style="font-size:0.8rem;color:var(--muted)">Max Drawdown: ' + data.summary.maxDrawdown + ' · Sharpe: ' + data.summary.sharpeRatio + '</div>';
-    log("Backtest done: " + data.summary.winRate + "%");
-  } catch (e) { log("Backtest error: " + e.message); document.getElementById("backtest-result").innerHTML = '<div class="error-msg">Backtest failed: ' + e.message + "</div>"; }
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || "unknown");
+    if (d.signalsFound === 0) { out.innerHTML = '<div class="mini">' + esc(d.message || 'No signals in this window.') + '</div>'; return; }
+    const card = (label, val, color) => '<div style="text-align:center;padding:10px;background:var(--card2);border-radius:10px"><div class="mini">' + label + '</div><div style="font-size:1.3rem;font-weight:800;' + (color ? 'color:' + color : '') + '">' + val + '</div></div>';
+    let html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">' +
+      card('Hit Rate', d.resolvedCount ? d.hitRate + '%' : '--', 'var(--success)') +
+      card('Graded', d.resolvedCount + ' / ' + d.signalsFound) +
+      card('Avg Return', d.resolvedCount ? d.avgReturn + '%' : '--', 'var(--accent)') + '</div>';
+    html += '<div class="mini" style="margin-bottom:10px">Total return: ' + d.totalReturn + '% · Max drawdown: ' + d.maxDrawdown + '% · W/L/N: ' + d.winCount + '/' + d.lossCount + '/' + d.holdCount + ' · Pending: ' + d.pendingCount + '</div>';
+    if (d.resolvedCount === 0 && d.pendingCount > 0) html += '<div class="mini" style="color:var(--warn);margin-bottom:10px">Signals are graded 24h after creation. Check back tomorrow.</div>';
+    html += (d.trades || []).slice(0, 10).map(t => '<div class="row" style="font-size:0.78rem"><span><b>' + esc(t.signal) + '</b> ' + esc(t.date) + '<br><span class="mini">' + esc(t.entryPrice || '') + (t.exitPrice ? ' → ' + esc(t.exitPrice) : '') + (t.note ? ' · ' + esc(t.note) : '') + '</span></span><span style="font-weight:700;color:' + (t.result === 'WIN' ? 'var(--success)' : t.result === 'LOSS' ? 'var(--danger)' : 'var(--muted)') + '">' + esc(t.result) + (t.actualReturn ? '<br>' + esc(t.actualReturn) : '') + '</span></div>').join('');
+    html += '<div class="mini" style="margin-top:8px">' + esc(d.methodology || '') + '</div>';
+    out.innerHTML = html;
+    log("Backtest done: " + d.hitRate + "% over " + d.resolvedCount);
+  } catch (e) { log("Backtest error: " + e.message); out.innerHTML = '<div class="error-msg">Backtest failed: ' + esc(e.message) + "</div>"; }
+  finally { btn.disabled = false; btn.textContent = "Run Backtest"; }
 }
 
+// ───────────────────────── real order (EIP-712) ─────────────────────────
+// FIX: backend requires `apiKeyName`; old code sent `keyName` -> always 400.
 async function prepareOrder() {
-  const symbol = document.getElementById("trade-symbol").value;
-  const side = document.getElementById("trade-side").value;
-  const price = document.getElementById("trade-price").value;
-  const qty = document.getElementById("trade-qty").value;
-  const keyName = document.getElementById("trade-keyname").value;
-  const accountID = document.getElementById("trade-accountid").value;
-  if (!price || !qty || !keyName || !accountID) { alert("Fill all fields"); return; }
+  const symbol = $("trade-symbol").value;
+  const side = $("trade-side").value;
+  const price = $("trade-price").value;
+  const qty = $("trade-qty").value;
+  const apiKeyName = $("trade-keyname").value;
+  const acct = $("trade-accountid").value;
+  if (!price || !qty || !apiKeyName || !acct) { alert("Fill all fields"); return; }
   log("Preparing: " + side + " " + symbol);
   try {
-    const r = await fetch("/api/trade?action=prepare-order&testnet=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, side, price, quantity: qty, accountID, keyName }) });
+    const r = await fetch("/api/trade?action=prepare-order&testnet=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, side, price, quantity: qty, accountID: acct, apiKeyName }) });
     const data = await r.json();
     if (!data.ok) throw new Error(data.error);
     preparedOrder = data;
-    document.getElementById("trade-result").innerHTML = '<div style="padding:12px;background:var(--card2);border-radius:10px;font-size:0.85rem"><b>✓ Prepared</b><br>Symbol: ' + symbol + "<br>Side: " + side + "<br>Price: " + price + " USDC<br>Qty: " + qty + '<br><div style="margin-top:8px;color:var(--warn)">Click Sign & Submit</div></div>';
-    document.getElementById("submit-btn").style.display = "flex";
+    $("trade-result").innerHTML = '<div style="padding:12px;background:var(--card2);border-radius:10px;font-size:0.85rem"><b>✓ Prepared</b><br>Symbol: ' + esc(symbol) + "<br>Side: " + esc(side) + "<br>Price: " + esc(price) + " USDC<br>Qty: " + esc(qty) + '<br><div style="margin-top:8px;color:var(--warn)">Click Sign & Submit (signs with your registered API key)</div></div>';
+    $("submit-btn").style.display = "flex";
     log("Prepared: " + symbol);
-  } catch (e) { log("Prepare error: " + e.message); document.getElementById("trade-result").innerHTML = '<div class="error-msg">Prepare failed: ' + e.message + "</div>"; }
+  } catch (e) { log("Prepare error: " + e.message); $("trade-result").innerHTML = '<div class="error-msg">Prepare failed: ' + esc(e.message) + "</div>"; }
 }
 
+// FIX: old code signed with MetaMask (master wallet) using payloadHash "0x" and sent fields the backend rejects.
+// Backend contract: hash payloadStr with keccak256, sign ExchangeAction{payloadHash, nonce} with the API KEY, prefix 0x01.
+// UNTESTED against SoDEX itself - run it on testnet and paste me the response.
 async function signAndSubmit() {
-  if (!preparedOrder || !window.ethereum) { alert("No order or wallet"); return; }
-  log("Signing...");
+  if (!preparedOrder) { alert("Prepare an order first"); return; }
+  if (!apiKeyPair || !window.ethers) { alert("Generate + register an API key first (Setup API Key). The private key only lives for this browser session."); return; }
+  log("Signing with API key...");
   try {
-    const signature = await window.ethereum.request({ method: "eth_signTypedData_v4", params: [walletAddress, JSON.stringify(preparedOrder)] });
+    const w = new ethers.Wallet(apiKeyPair.privateKey);
+    const nonce = preparedOrder.message.nonce;
+    const payloadHash = ethers.keccak256(ethers.toUtf8Bytes(preparedOrder.payloadStr));
+    const types = { ExchangeAction: [{ name: "payloadHash", type: "bytes32" }, { name: "nonce", type: "uint64" }] };
+    const sig = await w.signTypedData(preparedOrder.domain, types, { payloadHash, nonce });
+    const signature = "0x01" + sig.slice(2);
     log("Submitting...");
-    const r = await fetch("/api/trade?action=submit-order&testnet=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ params: preparedOrder.message, masterSign: signature, masterNonce: preparedOrder.message.nonce, apiKeyName: document.getElementById("trade-keyname").value }) });
+    const r = await fetch("/api/trade?action=submit-order&testnet=1", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ params: preparedOrder.payload.params, signature, nonce, apiKeyName: $("trade-keyname").value }) });
     const data = await r.json();
-    if (data.ok) { document.getElementById("trade-result").innerHTML = '<div style="padding:12px;background:rgba(34,197,94,.1);border:1px solid var(--success);border-radius:10px;color:var(--success)"><b>✓ Order Submitted!</b><br>' + (data.explorer ? '<a href="' + data.explorer + '" target="_blank" style="color:var(--accent)">View on Explorer →</a>' : "") + "</div>"; log("Order submitted"); }
+    if (data.ok) { $("trade-result").innerHTML = '<div style="padding:12px;background:rgba(34,197,94,.1);border:1px solid var(--success);border-radius:10px;color:var(--success)"><b>✓ Order Submitted!</b><br>' + (data.explorer && data.txHash ? '<a href="' + esc(data.explorer) + '" target="_blank" style="color:var(--accent)">View on Explorer →</a>' : "") + "</div>"; log("Order submitted"); }
     else throw new Error(data.error || "Submit failed");
-  } catch (e) { log("Submit error: " + e.message); document.getElementById("trade-result").innerHTML = '<div class="error-msg">Submit failed: ' + e.message + "</div>"; }
+  } catch (e) { log("Submit error: " + e.message); $("trade-result").innerHTML = '<div class="error-msg">Submit failed: ' + esc(e.message) + "</div>"; }
 }
 
+// ───────────────────────── chat ─────────────────────────
 async function sendChat() {
-  const input = document.getElementById("chat-input");
+  const input = $("chat-input");
   const msg = input.value.trim();
   if (!msg) return;
-  const chat = document.getElementById("chat");
-  chat.innerHTML += '<div class="chat-msg user">' + msg + "</div>";
+  const chat = $("chat");
+  chat.innerHTML += '<div class="chat-msg user">' + esc(msg) + "</div>";
   input.value = "";
   chat.scrollTop = chat.scrollHeight;
   log("Chat: " + msg.slice(0, 50));
   try {
     const r = await fetch("/api/signal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: msg, mode: "chat" }) });
     const data = await r.json();
-    chat.innerHTML += '<div class="chat-msg ai">' + (data.result || "Sorry, I could not process that.") + "</div>";
+    chat.innerHTML += '<div class="chat-msg ai">' + esc(data.result || "Sorry, I could not process that.") + "</div>";
+    if (data.result && !/temporarily unavailable/i.test(data.result)) setDot('groq-dot', true);
     chat.scrollTop = chat.scrollHeight;
-  } catch (e) { chat.innerHTML += '<div class="chat-msg ai" style="color:var(--danger)">Error: ' + e.message + "</div>"; chat.scrollTop = chat.scrollHeight; }
+  } catch (e) { chat.innerHTML += '<div class="chat-msg ai" style="color:var(--danger)">Error: ' + esc(e.message) + "</div>"; chat.scrollTop = chat.scrollHeight; }
 }
 
-async function loadAudit() {
-  log("Loading audit...");
-  try {
-    const r = await fetch("/api/soso?type=audit");
-    const data = await r.json();
-    const container = document.getElementById("audit-panel");
-    if (!data.ok || !data.logs || data.logs.length === 0) { container.innerHTML = '<div style="color:var(--muted)">No audit entries yet.</div>'; return; }
-    container.innerHTML = data.logs.slice().reverse().map(entry => '<div class="audit-entry"><span class="time">' + new Date(entry.timestamp).toLocaleTimeString() + '</span><span class="action">' + entry.action + '</span><span class="status-' + entry.status + '">' + entry.status + '</span><span style="color:var(--muted)">' + (entry.error || '') + '</span></div>').join('');
-    log("Audit loaded: " + data.logs.length + " entries");
-  } catch (e) { log("Audit error: " + e.message); document.getElementById("audit-panel").innerHTML = '<div style="color:var(--danger)">Failed: ' + e.message + "</div>"; }
-}
-
+// ───────────────────────── live stream ─────────────────────────
 function connectWS() {
   if (wsConnection) return;
   log("Connecting WS...");
   const evtSource = new EventSource("/api/ws?stream=prices");
   wsConnection = evtSource;
-  evtSource.onopen = () => { document.getElementById("ws-status").textContent = "Live"; document.getElementById("ws-dot").classList.remove("offline", "warn"); log("WS connected"); };
+  evtSource.onopen = () => { $("ws-status").textContent = "Live"; setDot('ws-dot', true); log("WS connected"); };
   evtSource.onmessage = (e) => {
     try {
       const data = JSON.parse(e.data);
       if (data.error) return;
       const targets = { "BTC_USDC": "BTC", "ETH_USDC": "ETH", "SOL_USDC": "SOL", "BNB_USDC": "BNB" };
       const sym = targets[data.symbol];
-      if (sym) {
-        const cards = document.querySelectorAll(".price-card");
-        cards.forEach(card => {
-          if (card.querySelector(".sym")?.textContent === sym) {
-            card.querySelector(".price").textContent = "$" + parseFloat(data.lastPrice).toLocaleString();
-            const ch = parseFloat(data.priceChange);
-            const chEl = card.querySelector(".change");
-            chEl.textContent = (ch >= 0 ? "+" : "") + ch.toFixed(2) + "%";
-            chEl.className = "change " + (ch >= 0 ? "up" : "down");
-          }
-        });
-        // Update paper trading price if same symbol selected
-        const paperSym = document.getElementById('paper-symbol')?.value;
-        const map = { 'BTC_USDC': 'BTC', 'ETH_USDC': 'ETH', 'SOL_USDC': 'SOL', 'BNB_USDC': 'BNB' };
-        if (paperSym && map[paperSym] === sym) {
-          document.getElementById('paper-price').value = parseFloat(data.lastPrice).toFixed(2);
+      if (!sym) return;
+      const px = parseFloat(data.lastPrice);
+      if (px > 0) livePrices[sym] = px;
+      document.querySelectorAll(".price-card").forEach(card => {
+        if (card.querySelector(".sym")?.textContent === sym) {
+          card.querySelector(".price").textContent = "$" + px.toLocaleString();
+          const ch = parseFloat(data.priceChange);
+          const chEl = card.querySelector(".change");
+          chEl.textContent = (ch >= 0 ? "+" : "") + ch.toFixed(2) + "%";
+          chEl.className = "change " + (ch >= 0 ? "up" : "down");
         }
-      }
+      });
+      const paperSym = $('paper-symbol')?.value;
+      if (paperSym && paperSym.replace('_USDC', '') === sym) $('paper-price').value = px.toFixed(2);
     } catch (e) {}
   };
-  evtSource.onerror = () => { document.getElementById("ws-status").textContent = "Reconnecting"; document.getElementById("ws-dot").classList.add("warn"); log("WS error, reconnecting..."); evtSource.close(); wsConnection = null; setTimeout(connectWS, 3000); };
+  evtSource.onerror = () => { $("ws-status").textContent = "Reconnecting"; setDot('ws-dot', 'warn'); log("WS error, reconnecting..."); evtSource.close(); wsConnection = null; setTimeout(connectWS, 3000); };
 }
 
-async function init() {
-  log("OnchainEdge v2.1 initializing...");
-  await Promise.all([loadPrices(), loadFearGreed(), loadETF(), loadSSI(), loadTreasury(), loadStocks(), loadSoDEXMarkets(), loadNews()]);
-  connectWS();
-  try {
-    const etf = await fetch("/api/soso?type=etf-flows").then(r => r.json());
-    if (etf.ok) { const total = etf.data.totalNet; document.getElementById("pulse-etf").textContent = (total >= 0 ? "+" : "") + "$" + (total / 1e6).toFixed(1) + "M"; document.getElementById("pulse-etf").style.color = total >= 0 ? "var(--success)" : "var(--danger)"; }
-  } catch (e) {}
-  try {
-    const ssi = await fetch("/api/soso?type=sector").then(r => r.json());
-    if (ssi.ok && ssi.data.length > 0) { const top = ssi.data.sort((a, b) => b.ch - a.ch)[0]; document.getElementById("pulse-ssi").textContent = top.d + " +" + top.ch.toFixed(1) + "%"; }
-  } catch (e) {}
-  try {
-    const treas = await fetch("/api/soso?type=treasury").then(r => r.json());
-    if (treas.ok && treas.data.length > 0) { const top = treas.data[0]; document.getElementById("pulse-treasury").textContent = top.name + " " + (top.btc / 1000).toFixed(0) + "K BTC"; }
-  } catch (e) {}
-  document.getElementById("soso-dot").classList.add("online");
-  document.getElementById("groq-dot").classList.add("online");
-  document.getElementById("live-dot").classList.add("online");
-  loadPaperTrading(); setInterval(updatePaperPnL, 30000);
-  log("Init complete");
+// ───────────────────────── paper trading ─────────────────────────
+// FIXES: (1) old 30s timer read a localStorage key that was never written, so it wiped P&L and history to "No trades yet";
+// (2) getLivePrice was async but used synchronously, so unrealized P&L never computed; (3) SELL added realized P&L on top of
+// full proceeds (double count) and allowed selling with no position (free money); (4) price was user-typed (BUY 1 BTC @ $100),
+// so P&L was meaningless; (5) Open Positions was never rendered; (6) hardcoded fallback prices. New storage key resets junk state.
+const paperAsset = sym => sym.replace('_USDC', '');
+const getLivePrice = sym => livePrices[paperAsset(sym)] || 0;
+
+function fillPaperPrice() {
+  const p = getLivePrice($('paper-symbol').value);
+  if (p > 0) $('paper-price').value = p.toFixed(2);
 }
 
-setInterval(() => { loadPrices(); loadFearGreed(); loadETF(); loadSSI(); loadTreasury(); loadStocks(); loadSoDEXMarkets(); loadNews(); }, 60000);
-init();
-
-// ── Paper Trading ──────────────────────────────────────────────────
-let paperBalance = 10000;
-let paperTrades = [];
-let paperPositions = {};
-
-async function fillPaperPrice() {
-  const symbol = document.getElementById('paper-symbol').value;
-  const price = await getLivePrice(symbol);
-  if (price > 0) {
-    document.getElementById('paper-price').value = price.toFixed(2);
-  }
+async function ensurePrice(sym) {
+  let p = getLivePrice(sym);
+  if (p > 0) return p;
+  await loadPrices();
+  return getLivePrice(sym);
 }
 
-async function getLivePrice(symbol) {
-  const map = { 'BTC_USDC': 'BTC', 'ETH_USDC': 'ETH', 'SOL_USDC': 'SOL', 'BNB_USDC': 'BNB' };
-  const asset = map[symbol] || symbol.replace('_USDC', '');
-
-  // Try to fetch from live API first
-  try {
-    const r = await fetch('/api/sodex?action=prices');
-    const data = await r.json();
-    if (data.ok && data.data && data.data[asset]) {
-      const price = parseFloat(data.data[asset].spot);
-      if (price > 0) return price;
-    }
-  } catch (e) {}
-
-  // Try DOM fallback
-  const cards = document.querySelectorAll('.price-card');
-  for (const card of cards) {
-    const sym = card.querySelector('.sym')?.textContent;
-    if (sym === asset) {
-      const priceText = card.querySelector('.price')?.textContent;
-      if (priceText) return parseFloat(priceText.replace(/[^0-9.]/g, ''));
-    }
-  }
-
-  // Hardcoded fallback
-  const hardcoded = { 'BTC_USDC': 65000, 'ETH_USDC': 3500, 'SOL_USDC': 150, 'BNB_USDC': 600 };
-  return hardcoded[symbol] || 0;
-}
 function loadPaperTrading() {
-  const saved = localStorage.getItem('onchainedge_paper');
-  if (saved) {
-    const data = JSON.parse(saved);
-    paperBalance = data.balance || 10000;
-    paperTrades = data.trades || [];
-    paperPositions = data.positions || {};
-  }
+  try {
+    const saved = localStorage.getItem(PAPER_KEY);
+    if (saved) {
+      const d = JSON.parse(saved);
+      paperBalance = d.balance ?? 10000;
+      paperTrades = d.trades || [];
+      paperPositions = d.positions || {};
+    }
+  } catch (e) {}
   updatePaperUI();
 }
 
 function savePaperTrading() {
-  localStorage.setItem('onchainedge_paper', JSON.stringify({
-    balance: paperBalance,
-    trades: paperTrades,
-    positions: paperPositions
-  }));
+  try { localStorage.setItem(PAPER_KEY, JSON.stringify({ balance: paperBalance, trades: paperTrades, positions: paperPositions })); } catch (e) {}
+}
+
+function resetPaper() {
+  if (!confirm('Reset paper account to $10,000?')) return;
+  paperBalance = 10000; paperTrades = []; paperPositions = {};
+  savePaperTrading(); updatePaperUI();
+  $('paper-result').innerHTML = '';
 }
 
 function updatePaperUI() {
-  const realizedPnl = paperTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-  let unrealizedPnl = 0;
+  const realized = paperTrades.reduce((s, t) => s + (t.pnl || 0), 0);
+  let unrealized = 0;
+  let posHtml = '';
   for (const sym in paperPositions) {
     const pos = paperPositions[sym];
-    const livePrice = getLivePrice(sym);
-    if (livePrice > 0 && pos.qty > 0) {
-      unrealizedPnl += (livePrice - pos.avgPrice) * pos.qty;
-    }
+    const live = getLivePrice(sym);
+    const u = live > 0 ? (live - pos.avgPrice) * pos.qty : 0;
+    unrealized += u;
+    posHtml += '<div class="row"><span><b>' + esc(sym) + '</b> ' + Number(pos.qty.toFixed(6)) + '<br><span class="mini">avg $' + pos.avgPrice.toFixed(2) + (live > 0 ? ' · live $' + live.toFixed(2) : '') + '</span></span><span style="font-weight:700;color:' + (u >= 0 ? 'var(--success)' : 'var(--danger)') + '">' + (u >= 0 ? '+' : '') + '$' + u.toFixed(2) + '</span></div>';
   }
-  const totalPnl = realizedPnl + unrealizedPnl;
-  document.getElementById('paper-balance').textContent = '$' + paperBalance.toFixed(2);
-  const pnlEl = document.getElementById('paper-pnl');
-  pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(2);
-  pnlEl.style.color = totalPnl >= 0 ? 'var(--success)' : 'var(--danger)';
-  document.getElementById('paper-trades').textContent = paperTrades.length;
-
-  const hist = document.getElementById('paper-history');
-  hist.innerHTML = paperTrades.slice().reverse().slice(0, 20).map(t =>
-    '<div style="display:flex;justify-content:space-between;padding:8px;background:var(--card2);border-radius:8px;font-size:0.8rem">' +
-    '<span><b>' + t.side + '</b> ' + t.symbol + ' @ $' + t.price + ' x ' + t.qty + '</span>' +
-    '<span style="color:' + (t.pnl >= 0 ? 'var(--success)' : 'var(--danger)') + '">' + (t.pnl >= 0 ? '+' : '') + '$' + (t.pnl || 0).toFixed(2) + '</span></div>'
-  ).join('');
+  const total = realized + unrealized;
+  $('paper-balance').textContent = '$' + paperBalance.toFixed(2);
+  const pnlEl = $('paper-pnl');
+  pnlEl.textContent = (total >= 0 ? '+' : '-') + '$' + Math.abs(total).toFixed(2);
+  pnlEl.style.color = total >= 0 ? 'var(--success)' : 'var(--danger)';
+  $('paper-trades').textContent = paperTrades.length;
+  $('paper-positions').innerHTML = posHtml || '<div class="mini">No open positions</div>';
+  $('paper-history').innerHTML = paperTrades.slice().reverse().slice(0, 20).map(t =>
+    '<div class="row" style="font-size:0.8rem"><span><b>' + esc(t.side) + '</b> ' + esc(t.symbol) + ' @ $' + Number(t.price).toFixed(2) + ' x ' + t.qty + '</span><span style="color:' + ((t.pnl || 0) >= 0 ? 'var(--success)' : 'var(--danger)') + '">' + (t.side === 'SELL' ? ((t.pnl || 0) >= 0 ? '+' : '-') + '$' + Math.abs(t.pnl || 0).toFixed(2) : 'open') + '</span></div>'
+  ).join('') || '<div class="mini">No trades yet</div>';
 }
 
 async function paperTrade() {
-  const symbol = document.getElementById('paper-symbol').value;
-  const side = document.getElementById('paper-side').value;
-  const price = parseFloat(document.getElementById('paper-price').value);
-  const qty = parseFloat(document.getElementById('paper-qty').value);
-  const btn = document.getElementById('paper-btn');
+  const symbol = $('paper-symbol').value;
+  const side = $('paper-side').value;
+  const qty = parseFloat($('paper-qty').value);
+  const btn = $('paper-btn');
+  if (!qty || qty <= 0) { alert('Enter a valid quantity'); return; }
 
-  if (!price || !qty || price <= 0 || qty <= 0) { alert('Enter valid price and quantity'); return; }
-
-  const total = price * qty;
-  if (side === 'BUY' && total > paperBalance) { alert('Insufficient paper balance'); return; }
-
-  btn.textContent = '⏳ Executing...';
   btn.disabled = true;
-  log('Paper trade: ' + side + ' ' + qty + ' ' + symbol + ' @ $' + price);
+  try {
+    const price = await ensurePrice(symbol);
+    if (!price) { alert('No live price available yet. Try again in a moment.'); return; }
+    $('paper-price').value = price.toFixed(2);
 
-  await new Promise(r => setTimeout(r, 800));
-
-  let realizedPnl = 0;
-  if (side === 'SELL' && paperPositions[symbol]) {
-    const pos = paperPositions[symbol];
-    const sellQty = Math.min(qty, pos.qty);
-    if (sellQty > 0) {
-      realizedPnl = (price - pos.avgPrice) * sellQty;
-      pos.qty -= sellQty;
-      if (pos.qty <= 0) delete paperPositions[symbol];
+    let realized = 0;
+    if (side === 'BUY') {
+      const cost = price * qty;
+      if (cost > paperBalance) { alert('Insufficient paper cash'); return; }
+      paperBalance -= cost;
+      const pos = paperPositions[symbol] || { qty: 0, avgPrice: 0 };
+      const newQty = pos.qty + qty;
+      pos.avgPrice = (pos.qty * pos.avgPrice + qty * price) / newQty;
+      pos.qty = newQty;
+      paperPositions[symbol] = pos;
+    } else {
+      const pos = paperPositions[symbol];
+      if (!pos || pos.qty <= 0) { alert('No open ' + symbol + ' position to sell'); return; }
+      if (qty > pos.qty + 1e-9) { alert('You only hold ' + pos.qty + ' ' + paperAsset(symbol)); return; }
+      realized = (price - pos.avgPrice) * qty;
+      paperBalance += price * qty;
+      pos.qty -= qty;
+      if (pos.qty <= 1e-9) delete paperPositions[symbol];
     }
-  }
-
-  if (side === 'BUY') {
-    paperBalance -= total;
-    if (!paperPositions[symbol]) paperPositions[symbol] = { qty: 0, avgPrice: 0 };
-    const pos = paperPositions[symbol];
-    const newTotal = pos.qty * pos.avgPrice + qty * price;
-    pos.qty += qty;
-    pos.avgPrice = pos.qty > 0 ? newTotal / pos.qty : 0;
-  } else {
-    paperBalance += total + realizedPnl;
-  }
-
-  paperTrades.push({
-    symbol, side, price, qty, total, pnl: realizedPnl,
-    time: Date.now()
-  });
-
-  savePaperTrading();
-  updatePaperUI();
-
-  const resultEl = document.getElementById('paper-result');
-  resultEl.innerHTML = '<div style="padding:12px;background:rgba(34,197,94,.1);border:1px solid var(--success);border-radius:10px;color:var(--success)"><b>✓ Paper Trade Executed</b><br>' + side + ' ' + qty + ' ' + symbol + ' @ $' + price + '<br>Realized P&L: ' + (realizedPnl >= 0 ? '+' : '') + '$' + realizedPnl.toFixed(2) + '</div>';
-
-  btn.textContent = '📋 Execute Paper Trade';
-  btn.disabled = false;
-  log('Paper trade done. P&L: $' + realizedPnl.toFixed(2))
-
+    paperTrades.push({ symbol, side, price, qty, total: price * qty, pnl: realized, time: Date.now() });
+    savePaperTrading();
+    updatePaperUI();
+    $('paper-result').innerHTML = '<div style="padding:12px;background:rgba(34,197,94,.1);border:1px solid var(--success);border-radius:10px;color:var(--success)"><b>✓ Paper Trade Executed</b><br>' + side + ' ' + qty + ' ' + esc(symbol) + ' @ $' + price.toFixed(2) + (side === 'SELL' ? '<br>Realized P&L: ' + (realized >= 0 ? '+' : '-') + '$' + Math.abs(realized).toFixed(2) : '') + '</div>';
+    log('Paper ' + side + ' ' + qty + ' ' + symbol + ' @ $' + price.toFixed(2));
+  } finally { btn.disabled = false; }
 }
 
-
-// === Live P&L Update ===
-async function updatePaperPnL() {
-  const symbol = document.getElementById('paper-symbol').value;
-  if (!symbol) return;
-  const livePrice = await getLivePrice(symbol);
-  if (!livePrice || livePrice <= 0) return;
-
-  let totalPnL = 0;
-  const trades = JSON.parse(localStorage.getItem('onchainedge_paper_trades') || '[]');
-
-  trades.forEach(trade => {
-    if (trade.symbol === symbol) {
-      const tradeValue = trade.price * trade.qty;
-      const currentValue = livePrice * trade.qty;
-      if (trade.side === 'BUY') {
-        trade.pnl = currentValue - tradeValue;
-      } else {
-        trade.pnl = tradeValue - currentValue;
-      }
-      totalPnL += trade.pnl;
-    }
-  });
-
-  // Update P&L display
-  const pnlEl = document.getElementById('paper-pnl');
-  if (pnlEl) {
-    pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + '$' + totalPnL.toFixed(2);
-    pnlEl.style.color = totalPnL >= 0 ? 'var(--success)' : 'var(--danger)';
-  }
-
-  // Update trade history P&L
-  const historyEl = document.getElementById('paper-history');
-  if (historyEl) {
-    let html = '';
-    trades.slice().reverse().forEach(t => {
-      const pnl = t.pnl || 0;
-      const pnlColor = pnl >= 0 ? 'var(--success)' : 'var(--danger)';
-      html += '<div style="display:flex;justify-content:space-between;padding:10px;background:var(--card2);border-radius:10px;margin-bottom:6px">' +
-        '<span>' + t.side + ' ' + t.symbol + ' @ $' + t.price + ' x ' + t.qty + '</span>' +
-        '<span style="color:' + pnlColor + '">' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + '</span></div>';
-    });
-    historyEl.innerHTML = html || '<div style="color:var(--muted)">No trades yet</div>';
-  }
+// ───────────────────────── boot ─────────────────────────
+async function init() {
+  log("OnchainEdge v2.2 initializing...");
+  await Promise.all([loadPrices(), loadFearGreed(), loadETF(), loadSSI(), loadTreasury(), loadStocks(), loadNews()]);
+  connectWS();
+  loadPaperTrading();
+  fillPaperPrice();
+  loadSignalAudit();
+  setInterval(updatePaperUI, 15000);
+  log("Init complete");
 }
 
+setInterval(() => { loadPrices(); loadFearGreed(); loadETF(); loadSSI(); loadTreasury(); loadStocks(); loadNews(); }, 60000);
+init();
 </script>
 </body>
 </html>
