@@ -1,23 +1,18 @@
-// /api/history.js — Signal history with in-memory fallback + audit trail
-// FIXED: Redis env var (KV_REST_API_URL), per-asset keys
+// /api/history.js — Signal history (AI Signal Audit Trail)
+// FIXES:
+//  1. Upstash auto-deserialises list items -> JSON.parse(object) threw -> every row dropped -> empty trail
+//  2. "all" read key `signals` which nothing ever writes -> now merges every signals:<ASSET> list
+//  3. Removed fabricated metrics (-12% drawdown, +4.2% avg return, 15% false signals, hit rate = BUY share)
+//  4. No edge caching, so Refresh actually refreshes
+//  5. ?action=health to see exactly what is broken (Redis env, ping, keys)
 
 import { Redis } from '@upstash/redis';
 
 const memoryStore = [];
-const auditLog = [];
+const DEFAULT_ASSETS = ['BTC', 'ETH', 'SOL', 'BNB', 'SOSO'];
 
-function logAudit(action, details, status = 'success', error = null) {
-  const entry = {
-    timestamp: new Date().toISOString(),
-    action,
-    details,
-    status,
-    error: error?.message || error,
-    source: 'history-api'
-  };
-  auditLog.push(entry);
-  if (auditLog.length > 100) auditLog.shift();
-  console.log(`[AUDIT] ${action}: ${status}`, details);
+function errMsg(e) {
+  return e?.message + (e?.cause?.code ? ` (${e.cause.code})` : '');
 }
 
 function getRedis() {
@@ -27,75 +22,104 @@ function getRedis() {
   return new Redis({ url, token });
 }
 
+const parseItem = s => {
+  if (s && typeof s === 'object') return s;
+  try { return JSON.parse(s); } catch { return null; }
+};
+
+async function listAssetKeys(redis) {
+  try {
+    const keys = await redis.keys('signals:*');
+    if (Array.isArray(keys) && keys.length) return keys;
+  } catch (e) { console.error('keys() failed:', errMsg(e)); }
+  return DEFAULT_ASSETS.map(a => `signals:${a}`);
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate');
-
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const { action, asset, days } = req.query || {};
 
   try {
-    if (action === 'get' || !action) {
-      logAudit('history_get', { asset, days });
+    if (action === 'health') {
+      const redis = getRedis();
+      const out = {
+        ok: true,
+        env: {
+          redisUrl: !!(process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL),
+          redisToken: !!(process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN),
+          groqKey: !!process.env.GROQ_API_KEY
+        },
+        redis: null
+      };
+      if (redis) {
+        try {
+          await redis.ping();
+          const keys = await listAssetKeys(redis);
+          const counts = {};
+          for (const k of keys) counts[k] = await redis.llen(k);
+          out.redis = { ping: 'ok', lists: counts };
+        } catch (e) {
+          out.redis = { ping: 'FAILED', error: errMsg(e) };
+        }
+      }
+      return res.status(200).json(out);
+    }
 
+    if (action === 'get' || !action) {
       let signals = [];
       let source = 'memory';
+      let redisError = null;
 
       const redis = getRedis();
       if (redis) {
         try {
-          const redisKey = asset && asset !== 'all' ? `signals:${asset}` : 'signals';
-          const raw = await redis.lrange(redisKey, 0, 99);
-          signals = raw.map(s => {
-            try { return JSON.parse(s); } catch { return null; }
-          }).filter(Boolean);
+          const keys = asset && asset !== 'all' ? [`signals:${asset}`] : await listAssetKeys(redis);
+          const lists = await Promise.all(keys.map(k => redis.lrange(k, 0, 99).catch(() => [])));
+          signals = lists.flat().map(parseItem).filter(Boolean);
           source = 'redis';
         } catch (e) {
-          console.error('Redis get failed:', e.message);
+          redisError = errMsg(e);
+          console.error('Redis get failed:', redisError);
         }
       }
 
       if (signals.length === 0 && memoryStore.length > 0) {
-        signals = [...memoryStore].reverse();
+        signals = [...memoryStore];
+        source = 'memory';
       }
 
-      if (asset && asset !== 'all') {
-        signals = signals.filter(s => (s.asset || 'BTC') === asset);
-      }
-
+      if (asset && asset !== 'all') signals = signals.filter(s => (s.asset || 'BTC') === asset);
       if (days) {
-        const cutoff = Date.now() - (parseInt(days) * 24 * 60 * 60 * 1000);
+        const cutoff = Date.now() - parseInt(days) * 24 * 60 * 60 * 1000;
         signals = signals.filter(s => (s.timestamp || 0) > cutoff);
       }
+      signals.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
       const total = signals.length;
-      const buySignals = signals.filter(s => s.signal === 'BUY');
-      const sellSignals = signals.filter(s => s.signal === 'SELL');
-      const holdSignals = signals.filter(s => s.signal === 'HOLD');
-
-      const avgConfidence = total > 0 
-        ? signals.reduce((a, s) => a + (s.confidence || 0), 0) / total 
-        : 0;
-
-      logAudit('history_success', { count: signals.length, source });
+      const count = sig => signals.filter(s => s.signal === sig).length;
+      const avgConfidence = total > 0 ? signals.reduce((a, s) => a + (s.confidence || 0), 0) / total : 0;
 
       return res.status(200).json({
         ok: true,
         signals: signals.slice(0, 50),
-        count: signals.length,
+        count: total,
         source,
+        ...(redisError ? { redisError } : {}),
         metrics: {
           total,
-          buy: buySignals.length,
-          sell: sellSignals.length,
-          hold: holdSignals.length,
+          buy: count('BUY'),
+          sell: count('SELL'),
+          hold: count('HOLD'),
           avgConfidence: Math.round(avgConfidence),
-          hitRate: total > 0 ? Math.round((buySignals.length / total) * 100) : 0,
-          maxDrawdown: '-12%',
-          falseSignals: Math.round(total * 0.15),
-          avgReturn: '+4.2%'
-        }
+          // Real accuracy lives in /api/simulate. Not faking it here.
+          hitRate: null, maxDrawdown: null, falseSignals: null, avgReturn: null
+        },
+        metricsNote: 'Hit rate, drawdown and returns are computed from real prices in /api/simulate.'
       });
     }
 
@@ -111,37 +135,28 @@ export default async function handler(req, res) {
         pulseScore: body.pulseScore || 0
       };
 
-      memoryStore.push(signal);
-      if (memoryStore.length > 500) memoryStore.shift();
+      memoryStore.unshift(signal);
+      if (memoryStore.length > 500) memoryStore.pop();
 
       const redis = getRedis();
       if (redis) {
         try {
-          const assetKey = signal.asset || 'BTC';
-          await redis.lpush(`signals:${assetKey}`, JSON.stringify(signal));
-          await redis.ltrim(`signals:${assetKey}`, 0, 499);
+          await redis.lpush(`signals:${signal.asset}`, JSON.stringify(signal));
+          await redis.ltrim(`signals:${signal.asset}`, 0, 499);
         } catch (e) {
-          console.error('Redis add failed:', e.message);
+          console.error('Redis add failed:', errMsg(e));
         }
       }
-
-      logAudit('history_add', signal);
       return res.status(200).json({ ok: true, signal });
     }
 
     if (action === 'backtest') {
-      return res.status(200).json({
-        ok: false,
-        error: 'Use /api/simulate for backtesting.',
-        redirect: '/api/simulate'
-      });
+      return res.status(200).json({ ok: false, error: 'Use /api/simulate for backtesting.', redirect: '/api/simulate' });
     }
 
     return res.status(400).json({ ok: false, error: 'Unknown action: ' + action });
-
   } catch (e) {
-    logAudit('history_error', { action }, 'error', e.message);
-    console.error('History error:', e.message);
-    return res.status(200).json({ ok: false, error: e.message });
+    console.error('History error:', errMsg(e));
+    return res.status(200).json({ ok: false, error: errMsg(e) });
   }
 }
