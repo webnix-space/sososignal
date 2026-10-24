@@ -1,196 +1,178 @@
-// api/simulate.js — Real signal accuracy tracking against SoSoValue historical klines.
-// Replaces the old confidence-bucket lookup table (which fabricated returns) with
-// actual close-price comparisons: entryPrice (stored at signal time) vs real close
-// price N days later, pulled from SoSoValue's daily klines endpoint.
-//
-// Judge feedback across Wave 2 asked for this exact thing repeatedly:
-// "signal accuracy tracking showing which calls hit their targets" (BlessinSum),
-// "a system that proves why its signals are reliable" (MuhammadBa_2),
-// "closed-loop performance evaluation" (jzddd).
-//
-// Constraint from SoSoValue docs: klines are DAILY ONLY, 3-month lookback max.
-// So resolution here is daily, not intraday — that's disclosed in the response,
-// not hidden.
+// api/simulate.js — Real signal accuracy tracking.
+// Grades each stored signal: entry price at signal time vs real daily close one day later.
+// Prices: Kraken daily OHLC (keyless) -> CoinGecko daily (keyless) fallback. NO SoSoValue dependency.
+// Daily resolution only; disclosed in the response.
 
 import { Redis } from '@upstash/redis';
 
-const SOSO_BASE = 'https://openapi.sosovalue.com/openapi/v1';
-const EVAL_WINDOW_DAYS = 1; // grade a signal once at least 1 full day has passed
+const EVAL_WINDOW_DAYS = 1;
+const DAY = 24 * 60 * 60 * 1000;
 
-function fetchWithTimeout(url, options = {}, timeout = 8000) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(id));
+const KRAKEN_PAIRS = { BTC: 'XBTUSD', ETH: 'ETHUSD', SOL: 'SOLUSD' };
+const GECKO_IDS = { BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', BNB: 'binancecoin', SOSO: 'sosovalue' };
+
+function errMsg(e) {
+  return e?.message + (e?.cause?.code ? ` (${e.cause.code})` : '');
 }
 
-// currency_id lookup is not stable/guessable — fetch the real list and cache
-// in-memory for the life of this serverless instance (cheap, changes rarely).
-let currencyIdCache = null;
-async function getCurrencyId(symbol, sosoKey) {
-  if (!currencyIdCache) {
-    const r = await fetchWithTimeout(`${SOSO_BASE}/currencies`, {
-      headers: { 'x-soso-api-key': sosoKey, 'Accept': 'application/json' }
-    }, 8000);
-    if (!r.ok) throw new Error(`currencies lookup failed: HTTP ${r.status}`);
-    const j = await r.json();
-    const list = Array.isArray(j) ? j : (j.data || []);
-    currencyIdCache = {};
-    for (const c of list) {
-      if (c.symbol) currencyIdCache[c.symbol.toUpperCase()] = c.currency_id;
-    }
-  }
-  return currencyIdCache[symbol.toUpperCase()] || null;
+function getRedis() {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
+  if (!url || !token) return null;
+  return new Redis({ url, token });
 }
 
-// Fetch daily klines for a currency between two timestamps (ms).
-async function getKlines(currencyId, startTime, endTime, sosoKey) {
-  const url = `${SOSO_BASE}/currencies/${currencyId}/klines?interval=1d&start_time=${startTime}&end_time=${endTime}&limit=100`;
-  const r = await fetchWithTimeout(url, {
-    headers: { 'x-soso-api-key': sosoKey, 'Accept': 'application/json' }
-  }, 8000);
-  if (!r.ok) throw new Error(`klines fetch failed: HTTP ${r.status}`);
+// Normalised candle: { timestamp (ms, UTC day start), open, close }
+async function krakenDaily(asset, startMs) {
+  const pair = KRAKEN_PAIRS[asset];
+  if (!pair) throw new Error('not on Kraken');
+  const since = Math.floor((startMs - 2 * DAY) / 1000);
+  const r = await fetch(`https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=1440&since=${since}`, {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!r.ok) throw new Error(`Kraken HTTP ${r.status}`);
   const j = await r.json();
-  return Array.isArray(j) ? j : (j.data || []);
+  if (j.error?.length) throw new Error('Kraken: ' + j.error.join(','));
+  const key = Object.keys(j.result || {}).find(k => k !== 'last');
+  const rows = key ? j.result[key] : [];
+  if (!rows.length) throw new Error('Kraken: empty');
+  return rows.map(c => ({ timestamp: c[0] * 1000, open: parseFloat(c[1]), close: parseFloat(c[4]) }));
 }
 
-// Given klines sorted by timestamp, find the closing price for the first
-// candle at or after targetTime.
-function closeAtOrAfter(klines, targetTime) {
-  const sorted = [...klines].sort((a, b) => a.timestamp - b.timestamp);
-  for (const k of sorted) {
-    if (k.timestamp >= targetTime) return k.close;
-  }
-  return sorted.length ? sorted[sorted.length - 1].close : null; // fallback: latest available
+async function geckoDaily(asset, startMs) {
+  const id = GECKO_IDS[asset];
+  if (!id) throw new Error(`no price source for ${asset}`);
+  const days = Math.min(365, Math.ceil((Date.now() - startMs) / DAY) + 3);
+  const r = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}&interval=daily`, {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!r.ok) throw new Error(`CoinGecko HTTP ${r.status}`);
+  const j = await r.json();
+  const p = j.prices || [];
+  if (!p.length) throw new Error('CoinGecko: empty');
+  return p.map(([t, price]) => ({ timestamp: t, open: price, close: price }));
 }
+
+async function getCandles(asset, startMs) {
+  const errors = [];
+  for (const [name, fn] of [['kraken', krakenDaily], ['coingecko', geckoDaily]]) {
+    try {
+      const candles = await fn(asset, startMs);
+      return { candles: candles.sort((a, b) => a.timestamp - b.timestamp), source: name };
+    } catch (e) { errors.push(`${name}: ${errMsg(e)}`); }
+  }
+  throw new Error(errors.join(' | '));
+}
+
+// Candle whose UTC day contains time t (last candle starting at or before t)
+function candleAt(candles, t) {
+  let hit = null;
+  for (const c of candles) { if (c.timestamp <= t) hit = c; else break; }
+  return hit;
+}
+
+const fmtDate = ts => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+const EMPTY = {
+  signalsFound: 0, resolvedCount: 0, pendingCount: 0,
+  hitRate: 0, falseSignalRate: 0, avgReturn: 0, totalReturn: 0, maxDrawdown: 0,
+  winCount: 0, lossCount: 0, holdCount: 0, trades: []
+};
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
 
-  const { asset = 'BTC', days = '30' } = req.query;
-  const cutoff = Date.now() - parseInt(days) * 24 * 60 * 60 * 1000;
+  const asset = String(req.query.asset || 'BTC').toUpperCase();
+  const days = String(req.query.days || '30');
+  const cutoff = Date.now() - parseInt(days) * DAY;
+  const period = `${days} days`;
 
-  const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-  const sosoKey = process.env.SOSO_API_KEY;
-
-  if (!redisUrl || !redisToken) {
-    return res.json({
-      ok: true, asset, period: `${days} days`,
-      signalsFound: 0, resolvedCount: 0, pendingCount: 0,
-      hitRate: 0, falseSignalRate: 0, avgReturn: 0, totalReturn: 0, maxDrawdown: 0,
-      winCount: 0, lossCount: 0, holdCount: 0, trades: [],
-      message: 'Redis not configured. Add UPSTASH_REDIS_REST_URL to Vercel env vars.'
-    });
-  }
-  if (!sosoKey) {
-    return res.json({
-      ok: false, asset, period: `${days} days`,
-      signalsFound: 0, resolvedCount: 0, pendingCount: 0,
-      hitRate: 0, falseSignalRate: 0, avgReturn: 0, totalReturn: 0, maxDrawdown: 0,
-      winCount: 0, lossCount: 0, holdCount: 0, trades: [],
-      error: 'SOSO_API_KEY not configured — cannot fetch real price history to grade signals.'
-    });
+  const redis = getRedis();
+  if (!redis) {
+    return res.json({ ok: true, asset, period, ...EMPTY, message: 'Redis not configured. Add UPSTASH_REDIS_REST_URL / KV_REST_API_URL to Vercel env vars.' });
   }
 
+  let stage = 'redis';
   try {
-    const redis = new Redis({ url: redisUrl, token: redisToken });
-    const key = `signals:${asset}`;
-    const raw = await redis.lrange(key, 0, 99);
-
+    const raw = await redis.lrange(`signals:${asset}`, 0, 99);
     const signals = raw
       .map(s => { try { return typeof s === 'string' ? JSON.parse(s) : s; } catch { return null; } })
       .filter(s => s && s.timestamp >= cutoff);
 
     if (signals.length === 0) {
-      return res.json({
-        ok: true, asset, period: `${days} days`,
-        signalsFound: 0, resolvedCount: 0, pendingCount: 0,
-        hitRate: 0, falseSignalRate: 0, avgReturn: 0, totalReturn: 0, maxDrawdown: 0,
-        winCount: 0, lossCount: 0, holdCount: 0, trades: [],
-        message: `No signal history for ${asset} in last ${days} days. Generate signals first!`
-      });
+      return res.json({ ok: true, asset, period, ...EMPTY, message: `No signal history for ${asset} in last ${days} days. Generate signals first.` });
     }
 
-    const currencyId = await getCurrencyId(asset, sosoKey);
-    if (!currencyId) {
-      return res.json({
-        ok: false, asset, period: `${days} days`,
-        signalsFound: signals.length, resolvedCount: 0, pendingCount: signals.length,
-        hitRate: 0, falseSignalRate: 0, avgReturn: 0, totalReturn: 0, maxDrawdown: 0,
-        winCount: 0, lossCount: 0, holdCount: 0, trades: [],
-        error: `Could not resolve currency_id for symbol ${asset} via SoSoValue /currencies.`
-      });
-    }
+    stage = 'prices';
+    const earliest = Math.min(...signals.map(s => s.timestamp));
+    const { candles, source: priceSource } = await getCandles(asset, earliest);
 
-    // Pull klines once for the full window instead of per-signal (rate-limit friendly).
-    const earliestSignal = Math.min(...signals.map(s => s.timestamp));
-    const klines = await getKlines(currencyId, earliestSignal, Date.now(), sosoKey);
-
+    stage = 'grading';
     let wins = 0, losses = 0, holds = 0, pending = 0;
     let runningPnl = 0, peak = 0, maxDD = 0;
     const trades = [];
 
     for (const sig of signals) {
-      const evalTime = sig.timestamp + EVAL_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-      const entryPrice = sig.entryPrice;
+      const evalTime = sig.timestamp + EVAL_WINDOW_DAYS * DAY;
+      let entryPrice = sig.entryPrice;
+      let entryEstimated = false;
+      if (!entryPrice) {
+        // signal.js stored 0 (frontend did not send price): estimate from that day's daily open
+        const c = candleAt(candles, sig.timestamp);
+        if (c) { entryPrice = c.open; entryEstimated = true; }
+      }
 
-      if (evalTime > Date.now() || !entryPrice) {
+      const base = { date: fmtDate(sig.timestamp), signal: sig.signal || 'N/A', confidence: sig.confidence || 50 };
+
+      if (evalTime > Date.now()) {
         pending++;
-        trades.push({
-          date: new Date(sig.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          signal: sig.signal || 'N/A',
-          confidence: sig.confidence || 50,
-          entryPrice: entryPrice ? `$${entryPrice.toLocaleString()}` : 'N/A',
-          result: 'PENDING',
-          note: 'Not yet eligible for grading (needs 1 full day of price history)'
-        });
+        trades.push({ ...base, entryPrice: entryPrice ? `$${entryPrice.toLocaleString()}` : 'N/A', result: 'PENDING', note: 'Needs 1 full day before it can be graded' });
         continue;
       }
 
-      const exitPrice = closeAtOrAfter(klines, evalTime);
-      if (!exitPrice || !entryPrice) {
+      const exitCandle = candleAt(candles, evalTime);
+      if (!entryPrice || !exitCandle) {
         pending++;
-        trades.push({
-          date: new Date(sig.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          signal: sig.signal || 'N/A',
-          confidence: sig.confidence || 50,
-          result: 'UNRESOLVED',
-          note: 'No matching kline data found for evaluation window'
-        });
+        trades.push({ ...base, result: 'UNRESOLVED', note: 'No price data for this window' });
         continue;
       }
 
+      const exitPrice = exitCandle.close;
       const actualReturn = ((exitPrice - entryPrice) / entryPrice) * 100;
       let result;
       if (sig.signal === 'BUY') result = actualReturn > 0 ? 'WIN' : 'LOSS';
       else if (sig.signal === 'SELL') result = actualReturn < 0 ? 'WIN' : 'LOSS';
-      else result = Math.abs(actualReturn) < 1 ? 'WIN' : 'NEUTRAL'; // HOLD "wins" if price stayed roughly flat
+      else result = Math.abs(actualReturn) < 1 ? 'WIN' : 'NEUTRAL';
 
       if (result === 'WIN') wins++;
       else if (result === 'LOSS') losses++;
       else holds++;
 
-      runningPnl += actualReturn;
+      // P&L direction: SELL profits when price falls
+      const pnl = sig.signal === 'SELL' ? -actualReturn : (sig.signal === 'BUY' ? actualReturn : 0);
+      runningPnl += pnl;
       peak = Math.max(peak, runningPnl);
       maxDD = Math.max(maxDD, peak - runningPnl);
 
       trades.push({
-        date: new Date(sig.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        signal: sig.signal || 'N/A',
-        confidence: sig.confidence || 50,
+        ...base,
         entryPrice: `$${entryPrice.toLocaleString()}`,
         exitPrice: `$${exitPrice.toLocaleString()}`,
         actualReturn: (actualReturn > 0 ? '+' : '') + actualReturn.toFixed(2) + '%',
-        result
+        result,
+        ...(entryEstimated ? { note: 'Entry estimated from daily open' } : {})
       });
     }
 
     const resolved = wins + losses + holds;
     return res.json({
-      ok: true, asset, period: `${days} days`,
+      ok: true, asset, period,
       signalsFound: signals.length,
       resolvedCount: resolved,
       pendingCount: pending,
@@ -201,16 +183,11 @@ export default async function handler(req, res) {
       maxDrawdown: Math.round(maxDD * 100) / 100,
       winCount: wins, lossCount: losses, holdCount: holds,
       trades: trades.slice(0, 50),
-      methodology: `Grades each signal by comparing entry price at signal time to the actual daily close price ${EVAL_WINDOW_DAYS} day(s) later, via SoSoValue historical klines. Daily resolution only (SoSoValue klines are daily-only, 3-month max lookback). Signals younger than ${EVAL_WINDOW_DAYS} day are marked PENDING, not scored.`
+      priceSource,
+      methodology: `Grades each signal by comparing entry price at signal time to the daily close ${EVAL_WINDOW_DAYS} day(s) later (${priceSource}). Daily resolution only. Signals younger than ${EVAL_WINDOW_DAYS} day are PENDING, not scored. SELL signals count as profit when price falls.`
     });
-
   } catch (e) {
-    console.error('[simulate] Error:', e.message);
-    return res.status(200).json({
-      ok: false, error: e.message,
-      signalsFound: 0, resolvedCount: 0, pendingCount: 0,
-      hitRate: 0, falseSignalRate: 0, avgReturn: 0, totalReturn: 0, maxDrawdown: 0,
-      winCount: 0, lossCount: 0, holdCount: 0, trades: []
-    });
+    console.error(`[simulate] ${stage} failed:`, errMsg(e));
+    return res.status(200).json({ ok: false, error: `${stage}: ${errMsg(e)}`, asset, period, ...EMPTY });
   }
 }
