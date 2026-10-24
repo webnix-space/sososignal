@@ -1,9 +1,11 @@
 // /api/signal.js — DUAL-MODEL AI SIGNAL ENGINE
-// FIXED: Redis env var (KV_REST_API_URL), per-asset keys
+// FIXED: Groq models migrated (llama-3.x deprecated 2026-08-16) -> gpt-oss
 
 import { Redis } from '@upstash/redis';
 
 const GROQ = 'https://api.groq.com/openai/v1/chat/completions';
+const MODEL_MAIN = 'openai/gpt-oss-120b'; // replaces llama-3.3-70b-versatile
+const MODEL_FAST = 'openai/gpt-oss-20b';  // replaces llama-3.1-8b-instant
 
 function getRedis() {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
@@ -13,13 +15,22 @@ function getRedis() {
 }
 
 async function callGroq(key, model, messages, jsonMode = false, maxTokens = 800) {
-  const body = { model, max_tokens: maxTokens, temperature: 0.3, messages };
+  // gpt-oss are reasoning models: reasoning tokens count against the limit,
+  // so add headroom and keep effort low or content comes back empty.
+  const body = {
+    model,
+    max_completion_tokens: maxTokens + 1200,
+    temperature: 0.3,
+    reasoning_effort: 'low',
+    include_reasoning: false,
+    messages
+  };
   if (jsonMode) body.response_format = { type: 'json_object' };
   const r = await fetch(GROQ, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(20000)
+    signal: AbortSignal.timeout(25000)
   });
   if (!r.ok) {
     const err = await r.text();
@@ -44,7 +55,7 @@ function detectDataSources(prompt) {
   if (/etf|ibit|fbtc|net inflow|net flow/i.test(prompt)) sources.push({ name: 'SoSoValue ETF Flows API', endpoint: '/etfs/{ticker}/market-snapshot', status: 'live', type: 'institutional' });
   if (/ssi|sector|layer1|defi|meme|index/i.test(prompt)) sources.push({ name: 'SoSoValue SSI Indexes API', endpoint: '/indices/{ticker}/market-snapshot', status: 'live', type: 'institutional' });
   if (/treasury|microstrategy|mstr|btc holdings/i.test(prompt)) sources.push({ name: 'SoSoValue BTC Treasury API', endpoint: '/btc-treasuries', status: 'live', type: 'institutional' });
-  if (/price|btc $|eth $|sol $/i.test(prompt)) sources.push({ name: 'SoSoValue Currency Snapshots', endpoint: '/currencies/{id}/market-snapshot', status: 'live', type: 'market' });
+  if (/price|btc \$|eth \$|sol \$/i.test(prompt)) sources.push({ name: 'SoSoValue Currency Snapshots', endpoint: '/currencies/{id}/market-snapshot', status: 'live', type: 'market' });
   if (sources.length === 0) sources.push({ name: 'SoSoValue Market Data', endpoint: 'openapi.sosovalue.com', status: 'live', type: 'institutional' });
   return sources;
 }
@@ -63,13 +74,14 @@ export default async function handler(req, res) {
   if (!prompt) return res.status(400).json({ error: 'prompt required' });
 
   if (mode === 'chat' || mode === 'analyze') {
-    const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+    const models = [MODEL_MAIN, MODEL_FAST];
     for (const model of models) {
       try {
         const result = await callGroq(KEY, model, [
           { role: 'system', content: 'You are OnchainEdge AI, a concise professional crypto analyst powered by SoSoValue institutional data. Max 3 sentences. No markdown. Be specific with numbers.' },
           { role: 'user', content: prompt }
         ], false, 400);
+        if (!result) throw new Error('empty response');
         return res.status(200).json({ result, model });
       } catch (e) {
         console.error(`${model} chat failed:`, e.message);
@@ -106,34 +118,23 @@ Generate a trading signal. Respond ONLY with this JSON:
   "take_profit": "+8%"
 }`;
 
-  let model1Result = null, model1Name = null;
-  try {
-    const raw = await callGroq(KEY, 'llama-3.3-70b-versatile', [
-      { role: 'system', content: 'You are a crypto analyst. Respond ONLY with valid JSON. No markdown.' },
-      { role: 'user', content: signalPrompt }
-    ], true, 900);
-    const parsed = parseJSON(raw);
-    if (parsed?.signal && ['BUY','SELL','HOLD','NEUTRAL'].includes(parsed.signal)) {
-      model1Result = parsed;
-      model1Name = 'llama-3.3-70b-versatile';
-    }
-  } catch (e) {
-    console.error('Model1 failed:', e.message);
-  }
+  const validSignal = (p) => p?.signal && ['BUY','SELL','HOLD','NEUTRAL'].includes(p.signal);
 
-  if (!model1Result) {
+  let model1Result = null, model1Name = null;
+  for (const model of [MODEL_MAIN, MODEL_FAST]) {
+    if (model1Result) break;
     try {
-      const raw = await callGroq(KEY, 'llama-3.1-8b-instant', [
+      const raw = await callGroq(KEY, model, [
         { role: 'system', content: 'You are a crypto analyst. Respond ONLY with valid JSON. No markdown.' },
         { role: 'user', content: signalPrompt }
       ], true, 900);
       const parsed = parseJSON(raw);
-      if (parsed?.signal && ['BUY','SELL','HOLD','NEUTRAL'].includes(parsed.signal)) {
+      if (validSignal(parsed)) {
         model1Result = parsed;
-        model1Name = 'llama-3.1-8b-instant';
+        model1Name = model;
       }
     } catch (e) {
-      console.error('Fallback model failed:', e.message);
+      console.error(`${model} signal failed:`, e.message);
     }
   }
 
@@ -147,14 +148,14 @@ Data: ${prompt}
 Respond ONLY with JSON: {"agree":true,"adjusted_confidence":68,"risk_flags":["specific risk 1","specific risk 2"],"contrarian":"strongest counter-argument","final_recommendation":"CONFIRM"}`;
 
   try {
-    const raw = await callGroq(KEY, 'llama-3.1-8b-instant', [
+    const raw = await callGroq(KEY, MODEL_FAST, [
       { role: 'system', content: 'Risk analyst. Respond ONLY with valid JSON.' },
       { role: 'user', content: riskPrompt }
     ], true, 400);
     const parsed = parseJSON(raw);
     if (parsed?.final_recommendation && Array.isArray(parsed.risk_flags)) {
       riskCheck = parsed;
-      m2Name = 'llama-3.1-8b-instant';
+      m2Name = MODEL_FAST;
     }
   } catch (e) {
     console.error('Risk model failed:', e.message);
