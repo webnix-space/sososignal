@@ -1,9 +1,7 @@
 // /api/_etf.js — ETF flows WITHOUT SoSoValue.
 // Source: Farside Investors public tables (the standard public BTC ETF flow source).
-// Stability layer: last good result cached in Redis, served flagged stale if Farside blocks us.
+// Stability layer: last good result kept in memory, served flagged stale if Farside blocks us.
 // Underscore prefix = Vercel does not expose this file as its own endpoint.
-
-import { Redis } from '@upstash/redis';
 
 const URLS = [
   'https://farside.co.uk/btc/',
@@ -27,14 +25,6 @@ const NAMES = {
 };
 
 const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
-const CACHE_KEY = 'etf:last';
-
-function getRedis() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
-  if (!url || !token) return null;
-  return new Redis({ url, token });
-}
 
 const clean = s => s
   .replace(/<[^>]*>/g, ' ')
@@ -123,22 +113,10 @@ async function fetchFarside(attempts) {
   return null;
 }
 
-async function saveCache(payload) {
-  try {
-    const redis = getRedis();
-    if (redis) await redis.set(CACHE_KEY, JSON.stringify({ ...payload, savedAt: Date.now() }));
-  } catch (e) { console.error('ETF cache save failed:', e.message); }
-}
-
-async function loadCache() {
-  try {
-    const redis = getRedis();
-    if (!redis) return null;
-    const v = await redis.get(CACHE_KEY);
-    if (!v) return null;
-    return typeof v === 'string' ? JSON.parse(v) : v;
-  } catch (e) { console.error('ETF cache load failed:', e.message); return null; }
-}
+// In-memory last-good copy (survives while the serverless instance is warm; no database)
+let memCache = null;
+const saveCache = async payload => { memCache = { ...payload, savedAt: Date.now() }; };
+const loadCache = async () => memCache;
 
 export async function etfFlows(req, res) {
   const attempts = [];
@@ -162,7 +140,7 @@ export async function etfFlows(req, res) {
 
   return res.status(200).json({
     ok: false,
-    error: 'ETF flow source unavailable and no cached data yet',
+    error: 'ETF flow source unavailable and no cached copy on this instance',
     attempts
   });
 }
