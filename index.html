@@ -280,9 +280,10 @@ header .subtitle{color:var(--muted);font-size:0.9rem;margin-top:4px}
     <div class="card-title">📋 AI Signal Audit Trail</div>
     <div class="card-badge">GPT-OSS</div>
   </div>
-  <div style="margin-bottom:10px;font-size:0.85rem;color:var(--muted)">Every AI signal stored with confidence, entry price and time. All assets.</div>
+  <div style="margin-bottom:10px;font-size:0.85rem;color:var(--muted)">Every AI signal saved in this browser with confidence, entry price and time. All assets.</div>
   <div style="margin-bottom:10px">
     <button class="btn" style="font-size:0.8rem;padding:6px 12px" onclick="loadSignalAudit()">🔄 Refresh Signal History</button>
+    <button class="btn" style="font-size:0.8rem;padding:6px 12px;margin-top:6px" onclick="clearSignals()">🗑 Clear</button>
   </div>
   <div class="audit-panel" id="audit-panel">Loading...</div>
 </div>
@@ -772,14 +773,13 @@ async function loadSignals() {
     if (data.error) throw new Error(data.error);
     const result = JSON.parse(data.result);
     $("signal-result").innerHTML = '<div class="signal-result"><div class="sig-text ' + esc(result.signal) + '">' + esc(result.signal) + '</div><div class="conf">' + result.confidence + '% confidence</div><div class="reasoning">' + esc(result.reasoning) + '</div><div class="factors">' + (result.factors || []).map(f => '<span class="factor">' + esc(f) + "</span>").join("") + '</div><div class="meta">Risk: ' + esc(result.risk) + " | Timeframe: " + esc(result.timeframe) + " | Stop: " + esc(result.stop_loss) + " | Target: " + esc(result.take_profit) + "</div>" + (result.riskCheck ? '<div class="risk-box"><b>Risk Check: ' + esc(result.riskCheck.verdict) + "</b> (score: " + result.riskCheck.score + ")<br>Warnings: " + esc((result.riskCheck.warnings || []).join(", ")) + "</div>" : "") + '<div class="mini" style="margin-top:10px">Models: ' + esc((result.models_used || []).join(" + ")) + "</div></div>";
-    if (data.stored === false) $("signal-result").insertAdjacentHTML('beforeend', '<div class="error-msg" style="margin-top:8px">Signal NOT saved to history: ' + esc(data.storeError || 'unknown') + '</div>');
+    saveSignalLocal({ asset, signal: result.signal, confidence: result.confidence, timestamp: Date.now(), entryPrice: price || 0, etfFlow: lastETF ? lastETF.totalNet : 0 });
     $("pulse-ai").textContent = result.signal + " (" + result.confidence + "%)";
     const pulseScore = Math.min(100, Math.max(0, result.confidence + (lastETF ? (lastETF.totalNet > 0 ? 10 : -10) : 0) + (top ? (top.ch > 0 ? 5 : -5) : 0)));
     $("pulse-score").textContent = Math.round(pulseScore);
     setDot('groq-dot', true);
     log("Signal: " + result.signal + " @ " + result.confidence + "%");
-    // FIX: removed saveSignalToAudit(). /api/signal already persists every signal to Redis; the extra call stored a
-    // DUPLICATE row with entryPrice 0 that double-counted in the backtest.
+    // Signals are saved in this browser (localStorage); /api/simulate grades them against real prices.
     loadSignalHistory();
     loadSignalAudit();
   } catch (e) { setDot('groq-dot', false); log("Signal error: " + e.message); $("signal-result").innerHTML = '<div class="error-msg">Signal failed: ' + esc(e.message) + "</div>"; }
@@ -793,31 +793,30 @@ function sigRow(sig) {
   return '<div class="row"><span><b style="color:' + color + '">' + esc(sig.signal) + '</b> <span class="mini">' + esc(sig.asset || 'BTC') + px + '</span><br><span class="mini">' + esc(when) + '</span></span><span style="color:var(--accent);font-weight:700">' + (sig.confidence || 50) + '%</span></div>';
 }
 
-async function loadSignalHistory() {
-  try {
-    const r = await fetch("/api/history?action=get&asset=" + currentAsset);
-    const data = await r.json();
-    if (!data.ok) return;
-    $("signal-history").innerHTML = '<h3 style="font-size:1rem;margin-bottom:8px">📜 Signal History</h3>' + data.signals.slice(0, 5).map(sigRow).join("");
-  } catch (e) { log("History error: " + e.message); }
+// Signals live in THIS browser (localStorage). No database.
+const SIG_KEY = 'oe_signals_v1';
+function getLocalSignals() { try { return JSON.parse(localStorage.getItem(SIG_KEY) || '[]'); } catch (e) { return []; } }
+function saveSignalLocal(sig) {
+  const all = getLocalSignals();
+  all.unshift(sig);
+  try { localStorage.setItem(SIG_KEY, JSON.stringify(all.slice(0, 300))); } catch (e) { log('Could not save signal locally: ' + e.message); }
+}
+function clearSignals() {
+  if (!confirm('Delete all saved signals from this browser?')) return;
+  localStorage.removeItem(SIG_KEY);
+  loadSignalAudit(); loadSignalHistory();
 }
 
-// FIX: old code used window.currentAsset, but `let currentAsset` is NOT a window property -> always undefined -> always BTC.
-async function loadSignalAudit() {
-  const panel = $('audit-panel');
-  try {
-    panel.innerHTML = '<div class="mini">Loading...</div>';
-    const r = await fetch('/api/history?action=get&asset=all');
-    const data = await r.json();
-    if (!data.ok) throw new Error(data.error || 'history failed');
-    if (!data.signals || data.signals.length === 0) {
-      panel.innerHTML = data.redisError || data.source !== 'redis'
-        ? '<div class="error-msg">Signal storage is DOWN: ' + esc(data.redisError || 'Redis not configured') + '. Fix the Redis env vars in Vercel and redeploy.</div>'
-        : '<div class="mini">No signals yet. Generate a signal first.</div>';
-      return;
-    }
-    panel.innerHTML = data.signals.slice(0, 15).map(sigRow).join('') + '<div class="mini" style="margin-top:6px">' + data.count + ' stored · source: ' + esc(data.source) + (data.redisError ? ' · redis error: ' + esc(data.redisError) : '') + '</div>';
-  } catch (e) { panel.innerHTML = '<div class="error-msg">Audit load failed: ' + esc(e.message) + '</div>'; }
+function loadSignalHistory() {
+  const sigs = getLocalSignals().filter(s => s.asset === currentAsset).slice(0, 5);
+  $("signal-history").innerHTML = sigs.length ? '<h3 style="font-size:1rem;margin-bottom:8px">📜 Signal History</h3>' + sigs.map(sigRow).join("") : '';
+}
+
+function loadSignalAudit() {
+  const sigs = getLocalSignals();
+  $('audit-panel').innerHTML = sigs.length
+    ? sigs.slice(0, 15).map(sigRow).join('') + '<div class="mini" style="margin-top:6px">' + sigs.length + ' signals stored in this browser</div>'
+    : '<div class="mini">No signals yet. Generate a signal first.</div>';
 }
 
 // ───────────────────────── backtest (FIX: matches the real /api/simulate response shape) ─────────────────────────
@@ -829,7 +828,8 @@ async function runBacktest() {
   btn.disabled = true; btn.textContent = "Running...";
   log("Backtest: " + asset + " / " + days + "d");
   try {
-    const r = await fetch("/api/simulate?asset=" + asset + "&days=" + days);
+    const sigs = getLocalSignals().filter(x => x.asset === asset);
+    const r = await fetch("/api/simulate?asset=" + asset + "&days=" + days, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signals: sigs }) });
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || "unknown");
     if (d.signalsFound === 0) { out.innerHTML = '<div class="mini">' + esc(d.message || 'No signals in this window.') + '</div>'; return; }
