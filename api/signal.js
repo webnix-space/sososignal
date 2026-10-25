@@ -1,18 +1,9 @@
 // /api/signal.js — DUAL-MODEL AI SIGNAL ENGINE
 // FIXED: Groq models migrated (llama-3.x deprecated 2026-08-16) -> gpt-oss
 
-import { Redis } from '@upstash/redis';
-
 const GROQ = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL_MAIN = 'openai/gpt-oss-120b'; // replaces llama-3.3-70b-versatile
 const MODEL_FAST = 'openai/gpt-oss-20b';  // replaces llama-3.1-8b-instant
-
-function getRedis() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
-  if (!url || !token) return null;
-  return new Redis({ url, token });
-}
 
 async function callGroq(key, model, messages, jsonMode = false, maxTokens = 800) {
   // gpt-oss are reasoning models: reasoning tokens count against the limit,
@@ -209,31 +200,5 @@ Respond ONLY with JSON: {"agree":true,"adjusted_confidence":68,"risk_flags":["sp
     powered_by: 'SoSoValue Institutional Data + Groq Dual-Model AI'
   };
 
-  let stored = false, storeError = null;
-  try {
-    const redis = getRedis();
-    if (!redis) storeError = 'Redis env vars not set (KV_REST_API_URL / KV_REST_API_TOKEN)';
-    if (redis) {
-      const signalRecord = JSON.stringify({
-        asset: asset || 'BTC',
-        signal: model1Result.signal,
-        confidence: finalConf,
-        confidence_evolution: model1Result.confidence_evolution || [],
-        entryPrice: price || 0,
-        etfFlow: etfFlow || 0,
-        pulseScore: pulseScore || 0,
-        timestamp: Date.now(),
-        riskScore
-      });
-      const assetKey = asset || 'BTC';
-      await redis.lpush(`signals:${assetKey}`, signalRecord);
-      await redis.ltrim(`signals:${assetKey}`, 0, 499);
-      stored = true;
-    }
-  } catch (e) {
-    storeError = e.message + (e.cause?.code ? ` (${e.cause.code})` : '');
-    console.error('Redis store failed:', storeError);
-  }
-
-  return res.status(200).json({ result: JSON.stringify(finalResult), stored, storeError });
+  return res.status(200).json({ result: JSON.stringify(finalResult) });
 }
