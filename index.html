@@ -772,6 +772,7 @@ async function loadSignals() {
     if (data.error) throw new Error(data.error);
     const result = JSON.parse(data.result);
     $("signal-result").innerHTML = '<div class="signal-result"><div class="sig-text ' + esc(result.signal) + '">' + esc(result.signal) + '</div><div class="conf">' + result.confidence + '% confidence</div><div class="reasoning">' + esc(result.reasoning) + '</div><div class="factors">' + (result.factors || []).map(f => '<span class="factor">' + esc(f) + "</span>").join("") + '</div><div class="meta">Risk: ' + esc(result.risk) + " | Timeframe: " + esc(result.timeframe) + " | Stop: " + esc(result.stop_loss) + " | Target: " + esc(result.take_profit) + "</div>" + (result.riskCheck ? '<div class="risk-box"><b>Risk Check: ' + esc(result.riskCheck.verdict) + "</b> (score: " + result.riskCheck.score + ")<br>Warnings: " + esc((result.riskCheck.warnings || []).join(", ")) + "</div>" : "") + '<div class="mini" style="margin-top:10px">Models: ' + esc((result.models_used || []).join(" + ")) + "</div></div>";
+    if (data.stored === false) $("signal-result").insertAdjacentHTML('beforeend', '<div class="error-msg" style="margin-top:8px">Signal NOT saved to history: ' + esc(data.storeError || 'unknown') + '</div>');
     $("pulse-ai").textContent = result.signal + " (" + result.confidence + "%)";
     const pulseScore = Math.min(100, Math.max(0, result.confidence + (lastETF ? (lastETF.totalNet > 0 ? 10 : -10) : 0) + (top ? (top.ch > 0 ? 5 : -5) : 0)));
     $("pulse-score").textContent = Math.round(pulseScore);
@@ -809,7 +810,12 @@ async function loadSignalAudit() {
     const r = await fetch('/api/history?action=get&asset=all');
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'history failed');
-    if (!data.signals || data.signals.length === 0) { panel.innerHTML = '<div class="mini">No signals yet. Generate a signal first.</div>'; return; }
+    if (!data.signals || data.signals.length === 0) {
+      panel.innerHTML = data.redisError || data.source !== 'redis'
+        ? '<div class="error-msg">Signal storage is DOWN: ' + esc(data.redisError || 'Redis not configured') + '. Fix the Redis env vars in Vercel and redeploy.</div>'
+        : '<div class="mini">No signals yet. Generate a signal first.</div>';
+      return;
+    }
     panel.innerHTML = data.signals.slice(0, 15).map(sigRow).join('') + '<div class="mini" style="margin-top:6px">' + data.count + ' stored · source: ' + esc(data.source) + (data.redisError ? ' · redis error: ' + esc(data.redisError) : '') + '</div>';
   } catch (e) { panel.innerHTML = '<div class="error-msg">Audit load failed: ' + esc(e.message) + '</div>'; }
 }
@@ -887,6 +893,14 @@ async function signAndSubmit() {
 }
 
 // ───────────────────────── chat ─────────────────────────
+function chatContext() {
+  const px = Object.entries(livePrices).map(([k, v]) => k + ': $' + v.toLocaleString()).join(', ') || 'unavailable';
+  const fg = $('fg-value').textContent !== '--' ? $('fg-value').textContent + '/100 (' + $('fg-text').textContent + ')' : 'unavailable';
+  const etf = lastETF ? (lastETF.totalNet >= 0 ? '+' : '-') + '$' + (Math.abs(lastETF.totalNet) / 1e6).toFixed(1) + 'M on ' + lastETF.date + ' (' + lastETF.etfs.slice(0, 4).map(e => e.ticker + ' ' + (e.netInflow / 1e6).toFixed(1) + 'M').join(', ') + ')' : 'unavailable';
+  const top = lastSSI && lastSSI.length ? [...lastSSI].sort((a, b) => Math.abs(b.ch) - Math.abs(a.ch)).slice(0, 3).map(s => s.d + ' ' + (s.ch >= 0 ? '+' : '') + s.ch.toFixed(2) + '%').join(', ') : 'unavailable';
+  return 'CONTEXT (live dashboard data):\nPrices: ' + px + '\nFear & Greed: ' + fg + '\nUS BTC ETF net flow: ' + etf + '\nTop SSI movers: ' + top + '\n\nUser question: ';
+}
+
 async function sendChat() {
   const input = $("chat-input");
   const msg = input.value.trim();
@@ -897,7 +911,7 @@ async function sendChat() {
   chat.scrollTop = chat.scrollHeight;
   log("Chat: " + msg.slice(0, 50));
   try {
-    const r = await fetch("/api/signal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: msg, mode: "chat" }) });
+    const r = await fetch("/api/signal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: chatContext() + msg, mode: "chat" }) });
     const data = await r.json();
     chat.innerHTML += '<div class="chat-msg ai">' + esc(data.result || "Sorry, I could not process that.") + "</div>";
     if (data.result && !/temporarily unavailable/i.test(data.result)) setDot('groq-dot', true);
