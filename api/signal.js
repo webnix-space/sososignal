@@ -78,7 +78,7 @@ export default async function handler(req, res) {
     for (const model of models) {
       try {
         const result = await callGroq(KEY, model, [
-          { role: 'system', content: 'You are OnchainEdge AI, a concise professional crypto analyst powered by SoSoValue institutional data. Max 3 sentences. No markdown. Be specific with numbers.' },
+          { role: 'system', content: 'You are OnchainEdge AI, a concise crypto analyst. Max 4 sentences. No markdown. Use ONLY the numbers in the CONTEXT block of the user message. If a metric is not in the context (on-chain metrics, NUPL, active addresses, hash rate, etc.), do not state it; say it is not available. Never invent or recall prices or statistics from memory.' },
           { role: 'user', content: prompt }
         ], false, 400);
         if (!result) throw new Error('empty response');
@@ -209,8 +209,10 @@ Respond ONLY with JSON: {"agree":true,"adjusted_confidence":68,"risk_flags":["sp
     powered_by: 'SoSoValue Institutional Data + Groq Dual-Model AI'
   };
 
+  let stored = false, storeError = null;
   try {
     const redis = getRedis();
+    if (!redis) storeError = 'Redis env vars not set (KV_REST_API_URL / KV_REST_API_TOKEN)';
     if (redis) {
       const signalRecord = JSON.stringify({
         asset: asset || 'BTC',
@@ -226,10 +228,12 @@ Respond ONLY with JSON: {"agree":true,"adjusted_confidence":68,"risk_flags":["sp
       const assetKey = asset || 'BTC';
       await redis.lpush(`signals:${assetKey}`, signalRecord);
       await redis.ltrim(`signals:${assetKey}`, 0, 499);
+      stored = true;
     }
   } catch (e) {
-    console.error('Redis store failed:', e.message);
+    storeError = e.message + (e.cause?.code ? ` (${e.cause.code})` : '');
+    console.error('Redis store failed:', storeError);
   }
 
-  return res.status(200).json({ result: JSON.stringify(finalResult) });
+  return res.status(200).json({ result: JSON.stringify(finalResult), stored, storeError });
 }
