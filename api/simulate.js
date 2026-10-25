@@ -1,25 +1,16 @@
-// api/simulate.js — Real signal accuracy tracking.
-// Grades each stored signal: entry price at signal time vs real daily close one day later.
-// Prices: Kraken daily OHLC (keyless) -> CoinGecko daily (keyless) fallback. NO SoSoValue dependency.
+// api/simulate.js — STATELESS signal accuracy grading. No database.
+// The browser sends its saved signals (POST body); this grades each against real daily prices.
+// Prices: Kraken daily OHLC (keyless) -> CoinGecko daily (keyless) fallback.
 // Daily resolution only; disclosed in the response.
-
-import { Redis } from '@upstash/redis';
 
 const EVAL_WINDOW_DAYS = 1;
 const DAY = 24 * 60 * 60 * 1000;
 
 const KRAKEN_PAIRS = { BTC: 'XBTUSD', ETH: 'ETHUSD', SOL: 'SOLUSD' };
-const GECKO_IDS = { BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', BNB: 'binancecoin', SOSO: 'sosovalue' };
+const GECKO_IDS = { BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', BNB: 'binancecoin' };
 
 function errMsg(e) {
   return e?.message + (e?.cause?.code ? ` (${e.cause.code})` : '');
-}
-
-function getRedis() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
-  if (!url || !token) return null;
-  return new Redis({ url, token });
 }
 
 // Normalised candle: { timestamp (ms, UTC day start), open, close }
@@ -83,33 +74,37 @@ const EMPTY = {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
+  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST {signals:[...]} only' });
 
   const asset = String(req.query.asset || 'BTC').toUpperCase();
   const days = String(req.query.days || '30');
   const cutoff = Date.now() - parseInt(days) * DAY;
   const period = `${days} days`;
 
-  const redis = getRedis();
-  if (!redis) {
-    return res.json({ ok: true, asset, period, ...EMPTY, message: 'Redis not configured. Add UPSTASH_REDIS_REST_URL / KV_REST_API_URL to Vercel env vars.' });
+  // Sanitise client-supplied signals (never trust the browser)
+  const incoming = Array.isArray(req.body?.signals) ? req.body.signals.slice(0, 300) : [];
+  const signals = incoming
+    .filter(s => s && typeof s.timestamp === 'number' && s.timestamp >= cutoff && s.timestamp <= Date.now() + 60000)
+    .filter(s => (s.asset || 'BTC').toUpperCase() === asset)
+    .filter(s => ['BUY', 'SELL', 'HOLD', 'NEUTRAL'].includes(s.signal))
+    .map(s => ({
+      signal: s.signal,
+      timestamp: s.timestamp,
+      confidence: Number(s.confidence) || 50,
+      entryPrice: Number(s.entryPrice) > 0 ? Number(s.entryPrice) : 0
+    }))
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  if (signals.length === 0) {
+    return res.json({ ok: true, asset, period, ...EMPTY, message: `No ${asset} signals saved in this browser for the last ${days} days. Generate signals first.` });
   }
 
-  let stage = 'redis';
+  let stage = 'prices';
   try {
-    const raw = await redis.lrange(`signals:${asset}`, 0, 99);
-    const signals = raw
-      .map(s => { try { return typeof s === 'string' ? JSON.parse(s) : s; } catch { return null; } })
-      .filter(s => s && s.timestamp >= cutoff);
-
-    if (signals.length === 0) {
-      return res.json({ ok: true, asset, period, ...EMPTY, message: `No signal history for ${asset} in last ${days} days. Generate signals first.` });
-    }
-
-    stage = 'prices';
     const earliest = Math.min(...signals.map(s => s.timestamp));
     const { candles, source: priceSource } = await getCandles(asset, earliest);
 
@@ -118,17 +113,17 @@ export default async function handler(req, res) {
     let runningPnl = 0, peak = 0, maxDD = 0;
     const trades = [];
 
-    for (const sig of signals) {
+    // grade oldest-first so drawdown is chronological
+    for (const sig of [...signals].sort((a, b) => a.timestamp - b.timestamp)) {
       const evalTime = sig.timestamp + EVAL_WINDOW_DAYS * DAY;
       let entryPrice = sig.entryPrice;
       let entryEstimated = false;
       if (!entryPrice) {
-        // signal.js stored 0 (frontend did not send price): estimate from that day's daily open
         const c = candleAt(candles, sig.timestamp);
         if (c) { entryPrice = c.open; entryEstimated = true; }
       }
 
-      const base = { date: fmtDate(sig.timestamp), signal: sig.signal || 'N/A', confidence: sig.confidence || 50 };
+      const base = { date: fmtDate(sig.timestamp), signal: sig.signal, confidence: sig.confidence };
 
       if (evalTime > Date.now()) {
         pending++;
@@ -154,7 +149,6 @@ export default async function handler(req, res) {
       else if (result === 'LOSS') losses++;
       else holds++;
 
-      // P&L direction: SELL profits when price falls
       const pnl = sig.signal === 'SELL' ? -actualReturn : (sig.signal === 'BUY' ? actualReturn : 0);
       runningPnl += pnl;
       peak = Math.max(peak, runningPnl);
@@ -170,6 +164,7 @@ export default async function handler(req, res) {
       });
     }
 
+    trades.reverse(); // newest first for display
     const resolved = wins + losses + holds;
     return res.json({
       ok: true, asset, period,
@@ -184,7 +179,7 @@ export default async function handler(req, res) {
       winCount: wins, lossCount: losses, holdCount: holds,
       trades: trades.slice(0, 50),
       priceSource,
-      methodology: `Grades each signal by comparing entry price at signal time to the daily close ${EVAL_WINDOW_DAYS} day(s) later (${priceSource}). Daily resolution only. Signals younger than ${EVAL_WINDOW_DAYS} day are PENDING, not scored. SELL signals count as profit when price falls.`
+      methodology: `Grades each saved signal by comparing its entry price to the daily close ${EVAL_WINDOW_DAYS} day(s) later (${priceSource}). Daily resolution only. Signals younger than ${EVAL_WINDOW_DAYS} day are PENDING, not scored. SELL signals count as profit when price falls.`
     });
   } catch (e) {
     console.error(`[simulate] ${stage} failed:`, errMsg(e));
